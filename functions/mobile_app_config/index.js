@@ -190,5 +190,65 @@ catch (err)
 }
 
 
+/// Update media file
+export async function deleteMediaFile(req,{userInfo}) {
+  try {
+     
+const apiMethod = "POST";
+const reqData = await getApiRequest(req,apiMethod);
+console.log('No leads found >>> ',reqData);
+//media_type  p_id media_for
+if (!("file_id" in reqData) || reqData["file_id"] <= 0 || !("p_id" in reqData) || !("media_for" in reqData)) {
+  console.error('Please enter mandatory fields data', "error");
+  return returnResponse(500, `Please enter mandatory fields data`, null);
+}
+if (!(acceptMediaFor.includes(reqData["media_for"].toLowerCase()))) {
+  console.error('Please enter mandatory fields data', "error");
+  return returnResponse(500, `Invalid media_for valu. Expected ${acceptMediaFor}, but received '${reqData["media_for"]}`, null);
+}
+
+const pId = reqData["p_id"];
+
+const mediaFor = reqData["media_for"];
+
+const fileId = reqData["file_id"];
+var selectedColunName;
+
+switch(mediaFor){
+  case 'leads':{
+    console.log('mediaFor 0000  >>> :', mediaFor);
+    selectedColunName = "p_id";
+  }
+  break;
+  case 'inventory':{
+    console.log('mediaFor 1 1 1 >>> :', mediaFor);
+    selectedColunName = "inventory_id";
+  }
+  break;
+}
+
+console.log('fileId >>>> if fileId list >>> :', fileId);
+
+const { data, error } = await _supabase
+.from('mediaFiles')
+.update({ is_deleted: true }) // Fields to update
+.eq(selectedColunName, pId)   // Additional condition
+.in('file_id', fileId);       // Matches rows with file_id in the list
+
+if (error) {
+  console.error('Error checking leads:', error);
+  return returnResponse(500, `Error checkining: ${error.message}`, null);
+}
+
+console.log('Dleted file found:', leads);
+return returnResponse(200, 'Deleted Successfully.', null);
+}
+catch (err) 
+{
+            console.error('Server error: new', err);
+            return returnResponse(500,`User not exist`,null);
+ }
+}
+
 
 

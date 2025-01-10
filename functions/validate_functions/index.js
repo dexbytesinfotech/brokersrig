@@ -174,9 +174,13 @@ export function getPriceFromString(priceStr) {
 
   let maxValue = amount;
 
-  if (unit === 'l') {
+  if (unit === 'k') {
+    maxValue = amount * 1000; // Thousand 
+  }
+  else if (unit === 'l') {
     maxValue = amount * 100000; // Lakhs
-  } else if (unit === 'lc' || unit === 'c') {
+  }
+  else if (unit === 'lc' || unit === 'c') {
     maxValue = amount * 10000000; // Crores
   }
 

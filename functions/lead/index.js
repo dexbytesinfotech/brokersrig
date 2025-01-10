@@ -107,7 +107,7 @@ if('property_type' in reqData && 'lead_type' in reqData && 'contact_id' in reqDa
   userData["property_size"] = reqData["property_size"];
   }
 
-  if(reqData["lead_type"]=="sell_lead"){
+  if(reqData["lead_type"]=="sell_lead"  || reqData["lead_type"]=="rental_lead"){
     if('sell_type' in reqData){    
       userData["sell_type"] = reqData["sell_type"];
       }
@@ -295,7 +295,7 @@ userData["property_size"] = reqData["property_size"];
 }
 
 
-if(reqData["lead_type"]=="sell_lead"){
+if(reqData["lead_type"]=="sell_lead"  || reqData["lead_type"]=="rental_lead"){
   if('sell_type' in reqData){    
     userData["sell_type"] = reqData["sell_type"];
     }

@@ -9,10 +9,8 @@ const _supabaseUrl = Deno.env.get('BASE_SUPABASE_URL');
 const _supabaseAnonKey = Deno.env.get('BASE_SUPABASE_ANON_KEY');
 const _supabase = createClient(_supabaseUrl, _supabaseAnonKey);
 
-const leadReturnColumn = ["created_at","preferred_location","min_budget","purpose","additional_details","lead_type","property_size","assigne_id","max_budget",
-"city","lat","lng","full_adress","amount_symbol_id","country_code","is_deleted","is_verified","asking_price","sell_type"].join(', ');
 const invertoryReturnColumn = ["created_at","preferred_location","min_budget","purpose","additional_details","lead_type","property_size","assigne_id","max_budget",
-"city","lat","lng","full_adress","amount_symbol_id","country_code","is_deleted","is_verified","asking_price","sell_type","inventory_id","lead_id"].join(', ');
+"city","lat","lng","full_adress","amount_symbol_id","country_code","is_deleted","is_verified","asking_price","sell_type","inventory_id","lead_id","budget_label"].join(', ');
 const returnContactColumn = ['phone','first_name','last_name','contact_id','county_code'].join(', ');
 
 
@@ -42,6 +40,7 @@ if(error) {
   return returnResponse(500,`Data not found`,null);
 }
 var invertoryId;
+var updatedMediaFiles;
 if(data==null){
   invertoryId = generateUniqueIntId({randomRange:10000});
   console.log('invertoryId >>>> if :', invertoryId);
@@ -82,6 +81,21 @@ const { data:daveData1, error:error2} = await _supabase
 .single();
 
 console.error('Fetched lead data >>00:', leadDetail); 
+
+
+/// Media File copy    
+try{
+  if("mediaFiles" in leadDetail) {
+  console.error('mediaFiles Files  >>:', leadDetail['mediaFiles']); 
+ const mediaResult =  await copyMediaData(leadDetail['mediaFiles'],invertoryId); 
+ delete leadDetail.mediaFiles;
+    }
+ }
+ catch (err) {
+   return "";
+ } 
+
+ 
   // Inset in invertory table
   const {  data:daveData2, error:error3 } = await _supabase
   .from('inventories')
@@ -94,6 +108,9 @@ console.error('Fetched lead data >>00:', leadDetail);
     console.error('Failed:', error3);
     return returnResponse(500, `Failed: ${error3.message}`, null);
   }
+
+ 
+
   const { data: inventoryDetail, error: errorInventory }  = await asyncgetInventoryDetails(daveData2["inventory_id"]);
   if (errorInventory) {
                 console.error('Error fetching joined data:', error1);
@@ -111,7 +128,6 @@ console.error('Fetched lead data >>00:', leadDetail);
 else{
   // Update Invertory
   invertoryId = data["inventory_id"];
-
   if(invertoryId===null){
     invertoryId = generateUniqueIntId({randomRange:10000});
   }
@@ -122,9 +138,23 @@ if (error1) {
               console.error('Error fetching joined data:', error1);
               return returnResponse(500, `Failed: ${error1.message}`, null);
             }
+
             leadDetail["lead_id"] = reqData['lead_id'];  
-            console.error('Fetched lead data >>:', leadDetail);                 
-  const { data:daveData1, error:error2} = await _supabase
+            console.error('Fetched lead data >>:', leadDetail); 
+/// Media File copy    
+try{
+  if("mediaFiles" in leadDetail) {
+  console.error('mediaFiles Files  >>:', leadDetail['mediaFiles']); 
+ const mediaResult =  await copyMediaData(leadDetail['mediaFiles'],invertoryId); 
+ delete leadDetail.mediaFiles;
+    }
+ }
+ catch (err) {
+   return "";
+ } 
+
+
+const { data:daveData1, error:error2} = await _supabase
 .from('inventories')
 .update(
   leadDetail
@@ -137,6 +167,8 @@ if (error2) {
   console.error('Failed:', error2);
   return returnResponse(500, `Failed: ${error2.message}`, null);
 }
+
+
 
 const { data: inventoryDetail, error: errorInventory }  = await asyncgetInventoryDetails(daveData1["inventory_id"]);
 if (errorInventory) {
@@ -247,13 +279,6 @@ else{
        userData["max_budget"] = budgetValues[1];
      }
 }
-// if('min_budget' in reqData){
-// userData["min_budget"] = reqData["min_budget"];
-// }
-
-// if('max_budget' in reqData){
-// userData["max_budget"] = reqData["max_budget"];
-// }
 
 if('lat' in reqData){
 userData["lat"] = reqData["lat"];
@@ -340,127 +365,6 @@ return returnResponse(500, `Please enter mandatory fields data`, null);
    }
 }
 
-
-
-/// Delete leads
-async function deleteLead(req,userInfo) {
-  try {
-           const apiMethod = "DELETE";
-            // Validate headers and method
-            const errors = validateHeaders(apiMethod,req.headers);
-            if (errors.length > 0) {
-              return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
-            }
-
-            /// Get data from API
-const reqData = await getApiRequest(req,apiMethod);
-console.log(' User information ######################  reqData', reqData);
-if (reqData["id"]<= 0) {
-  return returnResponse(400,"Unathoried user",null);
-}
-
-if(!('lead_id' in reqData) ||  reqData["lead_id"]===null){
-  return returnResponse(400,"Contact id Reqired",null);
-}
-// Check if the email exists in the `users` table
-const { data, error } = await _supabase
-.from('rUserLeads')
-.select('*')
-.eq('user_id',userInfo['id'])
-.eq('lead_id',reqData['lead_id'])
-.eq('is_deleted',false)
-.maybeSingle();
-if (error) {
-  console.error('Error checking leads:', error);
-  return returnResponse(500, `Error checking email: ${error.message}`, null);
-}
-console.log(' User information ######################  data', data);
-
-if (data===null) {
-  console.error('Contact already added:', error);
-  return returnResponse(500, `Selected data not found..`, null);
-}
-console.log(' User information ######################', userInfo);
-
-const userData = {"is_deleted":true};
-
-// Check if the email exists in the `users` table
-if(!(JSON.stringify(userData) === '{}')){
-  const { data, error } = await _supabase
-  .from('rUserLeads')
-  .update([
-    userData,
-  ])
-  .eq('lead_id', reqData["lead_id"])
-  .select();
-
-  const {data:data1, error:error1} = await _supabase
-  .from('leads')
-  .update([
-    userData,
-  ])
-  .eq('id', reqData["lead_id"])
-  .select(`id`);
-
-  if (error1) {
-    console.error('Failed:', error1);
-    return returnResponse(500, `Failed: ${error1.message}`, null);
-  }
-
-return returnResponse(200, `Deleted successfully`, []); 
-}
-else {
-  console.error('Please enter mandatory fields data', "error");
-  return returnResponse(500, `Please enter mandatory fields data`, null);
-}
-}
-catch (err) 
-{
-            console.error('Server error: new', err);
-            return returnResponse(500,`User not exist`,null);
- }
-}
-
-/// Get  Lead type
-async function getLeadType(req,userInfo) {
-  try {
-           const apiMethod = "GET";
-            // Validate headers and method
-            const errors = validateHeaders(apiMethod,req.headers);
-            if (errors.length > 0) {
-              return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
-            }
-
-const returnLeadTypeColumn = ['lead_type','created_at','title'].join(', ');
-// Check if the email exists in the `users` table
-const { data, error } = await _supabase
-  .from('leadType')
-  .select(returnLeadTypeColumn).eq("is_deleted",false).order('id', { ascending: true });
-
-if (error) {
-  console.error('Error checking leads:', error);
-  return returnResponse(500, `Error checking leads: ${error.message}`, null);
-}
-
-// Check for multiple rows and handle accordingly
-if (!data || data.length === 0) {
-  console.log('No leads found');
-  return returnResponse(404, 'No leads found', null);
-}
-
-// Single row returned
-const leads = data;
-console.log('Contact found:', leads);
-return returnResponse(200, 'Account type retrieved successfully.', leads);
-}
-catch (err) 
-{
-            console.error('Server error: new', err);
-            return returnResponse(500,`User not exist`,null);
- }
-}
-
-
 /// Get  Lead type
 export async function getInventories(req,userInfo) {
   try {
@@ -475,8 +379,17 @@ export async function getInventories(req,userInfo) {
 //   propertyType(${['title','property_type'].join(', ')}))
 // `
 const { data: data1, error: error1 } = await _supabase
-  .from('rUserInventories')
-  .select(`inventories(${invertoryReturnColumn})`)
+//   .from('rUserInventories')
+//   .select(`
+//   ${invertoryReturnColumn},
+//   contacts(${returnContactColumn}),
+//   propertyType(${['title','property_type'].join(', ')}),
+//   mediaFiles(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
+// `)
+.from('rUserInventories')
+  .select(`inventories(${invertoryReturnColumn},contacts(${returnContactColumn}),
+  propertyType(${['title','property_type'].join(', ')}),mediaFiles(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')}))
+`)
   .eq('is_deleted', false)
   .eq('user_id', userInfo.id)
   .eq('inventories.is_deleted', false) // Filter on contact's 'is_deleted' (if needed)
@@ -509,60 +422,6 @@ catch (err)
  }
 }
 
-
-/// Get  Lead type
-async function getContactLeads(req,userInfo) {
-  try {
-           const apiMethod = "GET";
-            // Validate headers and method
-            const errors = validateHeaders(apiMethod,req.headers);
-            if (errors.length > 0) {
-              return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
-            }
- const reqData = await getApiRequest(req,apiMethod);
-console.log('Requested mobile:', reqData);
-console.log('Requested mobile >>>  :', reqData.get("contact_id"));
-
-if(reqData["contact_id"]<= 0 ){
-  return returnResponse(400,"Contact id Reqired",null);
-}
-const { data: data1, error: error1 } = await _supabase
-  .from('rUserLeads')
-  .select(`leads(${leadReturnColumn},contacts(${returnContactColumn}),
-  propertyType(${['title','property_type'].join(', ')}))
-`)
-  .eq('is_deleted', false)
-  .eq('user_id', userInfo.id)
-  .eq('leads.is_deleted', false) 
-  .eq('leads.contact_id', reqData.get("contact_id")) // Filter on contact's 'is_deleted' (if needed)
-  .order('id', { ascending: true });
-
-if (error1) {
-  console.error('Error fetching joined data:', error1);
-} else {
-  console.log('Joined data:', data1);
-}
-
-// // Single row returned
-// const leads = leadsData;
-console.log('Contact found:', data1);
-
-if(data1!=null && data1.length>0){
-  const leadList = data1.map((item) => item.leads).filter((lead) => lead != null);
-  return returnResponse(200, 'Success', leadList);
-}
-else
-{
-  return returnResponse(400, 'No data found', []);
-}
-
-}
-catch (err) 
-{
-            console.error('Server error: new', err);
-            return returnResponse(500,`User not exist`,null);
- }
-}
 
 /// Get  Lead details
 export async function getInventoryDetail(req,userInfo) {
@@ -602,7 +461,10 @@ catch (err)
 async function asyncgetLeadDetails(leadId) {
   return await _supabase
   .from('leads')
-  .select(`*`)
+  .select(`
+  *,
+  mediaFiles(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
+`)
   .eq('is_deleted', false)
   .eq('id', leadId).single();
 }
@@ -615,7 +477,50 @@ async function asyncgetInventoryDetails(inventoryId) {
   contacts(${returnContactColumn}),
   propertyType(${['title','property_type'].join(', ')}),
   mediaFiles(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
-`)
-  .eq('is_deleted', false)
+`).eq('is_deleted', false)
   .eq('inventory_id', inventoryId).single();
+}
+
+
+async function copyMediaData(mediaDataList,invertoryId){
+  try{
+    console.error('mediaFiles Files ***** >>:', mediaDataList); 
+
+   const updatedMediaFiles = mediaDataList.map(item => ({
+     ...item,  // Spread the existing properties
+     inventory_id: invertoryId,  // Add the inventory_id
+     media_for:"inventory"
+   }));
+
+   // Fetch existing records from mediaFiles based on file_id
+// const { data: existingFiles, error: fetchError } = await _supabase
+// .from('mediaFiles')
+// .select('*')
+// .in('file_id', updatedMediaFiles.map(file => file.file_id));  // Check by file_id
+
+// if (fetchError) {
+// console.error('Error fetching existing files:', fetchError.message);
+// }
+
+//    const { data, error } =  await _supabase
+//      .from('mediaFiles')
+//      .insert(
+//        updatedMediaFiles
+//      ).select('*');
+
+// Perform the insert/upsert operation with the filtered list
+const { data, error } = await _supabase
+  .from('mediaFiles')
+  .upsert(updatedMediaFiles, { onConflict: ['file_id'] })
+  .select('*');  // Fetch inserted rows
+   
+   if (error) {
+     console.error('Media file coppy error:', error);
+     return error.message;
+   }
+   return "";
+   }
+   catch (err) {
+     return "";
+   }
 }
