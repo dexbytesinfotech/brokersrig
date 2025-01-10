@@ -680,6 +680,7 @@ async function asyncgetLeadDetails(leadId) {
   mediaFiles(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
 `)
   .eq('is_deleted', false)
+  .eq('mediaFiles.is_deleted', false)
   .eq('id', leadId).single();
 }
 

@@ -65,6 +65,15 @@ serve(async (req) => {
     return await addMediaFile(req,userInfo);
    }
 
+   else if(validateEndPoint==="/media/delete_media" && validateSingleApiMethods('DELETE',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await deleteMediaFile(req,userInfo);
+   }
+
+   
 
    else if(validateEndPoint==="/update_user_profile" && validateSingleApiMethods('POST',req.headers).length===0){
     const userInfo = await validateUserAuthorization(req);

@@ -194,7 +194,7 @@ catch (err)
 export async function deleteMediaFile(req,{userInfo}) {
   try {
      
-const apiMethod = "POST";
+const apiMethod = "DELETE";
 const reqData = await getApiRequest(req,apiMethod);
 console.log('No leads found >>> ',reqData);
 //media_type  p_id media_for
@@ -240,7 +240,7 @@ if (error) {
   return returnResponse(500, `Error checkining: ${error.message}`, null);
 }
 
-console.log('Dleted file found:', leads);
+// console.log('Dleted file found:', leads);
 return returnResponse(200, 'Deleted Successfully.', null);
 }
 catch (err) 
