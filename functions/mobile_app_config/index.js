@@ -9,9 +9,7 @@ const _supabaseUrl = Deno.env.get('BASE_SUPABASE_URL');
 const _supabaseAnonKey = Deno.env.get('BASE_SUPABASE_ANON_KEY');
 const _supabase = createClient(_supabaseUrl, _supabaseAnonKey);
 
-
-
-
+const acceptMediaFor = ["leads","inventory","property","followup"];
 
 // const handler = (req) => {
 //   const url = new URL(req.url);
@@ -87,10 +85,10 @@ catch (err)
  }
 }
 
-
 /// Update media file
 export async function addMediaFile(req,{userInfo}) {
   try {
+     
 const apiMethod = "POST";
 const reqData = await getApiRequest(req,apiMethod);
 console.log('No leads found >>> ',reqData);
@@ -99,12 +97,30 @@ if (!("files_url" in reqData) || reqData["files_url"] <= 0 || !("p_id" in reqDat
   console.error('Please enter mandatory fields data', "error");
   return returnResponse(500, `Please enter mandatory fields data`, null);
 }
+if (!(acceptMediaFor.includes(reqData["media_for"].toLowerCase()))) {
+  console.error('Please enter mandatory fields data', "error");
+  return returnResponse(500, `Invalid media_for valu. Expected ${acceptMediaFor}, but received '${reqData["media_for"]}`, null);
+}
 
 const pId = reqData["p_id"];
 
 const mediaFor = reqData["media_for"];
 
 const filesUrl = reqData["files_url"];
+var selectedColunName;
+
+switch(mediaFor){
+  case 'leads':{
+    console.log('mediaFor 0000  >>> :', mediaFor);
+    selectedColunName = "p_id";
+  }
+  break;
+  case 'inventory':{
+    console.log('mediaFor 1 1 1 >>> :', mediaFor);
+    selectedColunName = "inventory_id";
+  }
+  break;
+}
 
 // Generate the custom list
 const customList = filesUrl.map(file => {
@@ -119,13 +135,15 @@ const customList = filesUrl.map(file => {
   }
   const fileId = generateUniqueIntId({length:3});
   console.log('fileId >>>> if fileUrl >>> :', fileUrl);
-  return {
-    media_type: extension, // Default to "jpeg" if media_type is missing
-    file_url: fileUrl, // Directly assigning the file as file_url
-    p_id: pId, // Assuming pId is defined elsewhere
-    media_for: mediaFor, // Assuming mediaFor is defined elsewhere
-    file_id: fileId // Use file_id directly from file
-  };
+var requestData = {
+  media_type: extension, // Default to "jpeg" if media_type is missing
+  file_url: fileUrl, // Directly assigning the file as file_url
+  media_for: mediaFor, // Assuming mediaFor is defined elsewhere
+  file_id: fileId // Use file_id directly from file
+}
+requestData[selectedColunName] = pId;
+
+return requestData;
 });
 
 const returnColumn = ['file_url','media_type','category','sub_category','file_id','media_for'].join(', ');
@@ -147,7 +165,7 @@ if (error) {
 
 const { data:data1, error:error1 } =  await _supabase
   .from('mediaFiles')
-  .select(returnColumn).eq("p_id",pId).eq("is_deleted",false).eq("media_for",mediaFor).order('id', { ascending: false });
+  .select(returnColumn).eq(selectedColunName,pId).eq("is_deleted",false).eq("media_for",mediaFor).order('id', { ascending: false });
 
   if (error1) {
     console.error('Error checking leads:', error1);

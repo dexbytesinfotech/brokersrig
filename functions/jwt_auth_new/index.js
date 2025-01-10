@@ -3,10 +3,7 @@ import { returnResponse } from "../response_formatter_js/index.js";// Assuming t
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
 
-// index.js
 import { create, decode, verify } from "https://deno.land/x/djwt/mod.ts";
-
-
 
 // Environment variables
 const _supabaseUrl = Deno.env.get('BASE_SUPABASE_URL');
@@ -21,10 +18,6 @@ return await createCustomJWT(req);
 // Example function to create a custom JWT
  async function createCustomJWT(req) {
   try {
-console.log(_supabaseUrl);
-console.log(_supabaseAnonKey);
-console.log(_jwtSecretKey);
-
 // Convert the secret key to a CryptoKey
 const key = await crypto.subtle.importKey(
     "raw",                             // Key format
@@ -33,7 +26,17 @@ const key = await crypto.subtle.importKey(
     false,                             // Extractable
     ["sign", "verify"]                 // Usages
 );
-const payload = { foo: "bar" };
+
+// Set expiration time (e.g., token expires in 1 hour)
+const hours = 1;
+const second = 1;  // 60 = 1 minutes
+const expirationTimeInSeconds = Math.floor(Date.now() / 1000) + (60*(second*hours)); // Current time + 3600 seconds (1 hour)
+
+const payload = {
+  foo: "bar",    // Custom data
+  exp: expirationTimeInSeconds, // Expiration time
+};
+
 // Create the JWT
 const token = await create(
     { alg: "HS256", typ: "JWT" }, // Header
@@ -50,14 +53,26 @@ console.log("Generated Token:", token);
   }
 }
 
-export async function verifyJWT(token){
+async function verifyJWT(token){
     try {
     // const secretKey = 'b3f3f1e9b2cd32f4b7f03cfa0980766f4650e17c7b763d6ac7e0b1b7b8b7f394'; 
     // const payload = await verify(token, secretKey, "HS256");
     if(token===null){
       return null;
     }
-    const payload =  decodeBase64ToPayload(token);
+// Verify the token
+try {
+  const verifiedPayload = await verify(token, _jwtSecretKey, "HS256"); // Specify algorithm
+  console.log("Verified Payload:", verifiedPayload);
+} 
+catch (err) {
+  console.error("JWT Verification Failed:", err.message);
+  return null;
+}
+// Optionally decode the token without verifying (useful for inspecting)
+const decoded = decode(token);
+console.log("Decoded Token:", decoded);
+ const payload =  decoded;
     console.log("JWT payload > > > :", payload);
     return payload;
     } 
