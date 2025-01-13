@@ -148,12 +148,12 @@ return requestData;
 
 const returnColumn = ['file_url','media_type','category','sub_category','file_id','media_for'].join(', ');
 // await _supabase
-//   .from('mediaFiles')
+//   .from('media_files')
 //   .select(returnColumn).eq("type",reqData.get('type')).order('id', { ascending: true });
 //   const { data:daveData, error:error1 } =
 // Check if the email exists in the `users` table
 const { data, error } =  await _supabase
-  .from('mediaFiles')
+  .from('media_files')
   .insert(
     customList
   ).select('*');
@@ -164,7 +164,7 @@ if (error) {
 }
 
 const { data:data1, error:error1 } =  await _supabase
-  .from('mediaFiles')
+  .from('media_files')
   .select(returnColumn).eq(selectedColunName,pId).eq("is_deleted",false).eq("media_for",mediaFor).order('id', { ascending: false });
 
   if (error1) {
@@ -230,7 +230,7 @@ switch(mediaFor){
 console.log('fileId >>>> if fileId list >>> :', fileId);
 
 const { data, error } = await _supabase
-.from('mediaFiles')
+.from('media_files')
 .update({ is_deleted: true }) // Fields to update
 .eq(selectedColunName, pId)   // Additional condition
 .in('file_id', fileId);       // Matches rows with file_id in the list

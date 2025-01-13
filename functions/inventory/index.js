@@ -85,10 +85,10 @@ console.error('Fetched lead data >>00:', leadDetail);
 
 /// Media File copy    
 try{
-  if("mediaFiles" in leadDetail) {
-  console.error('mediaFiles Files  >>:', leadDetail['mediaFiles']); 
- const mediaResult =  await copyMediaData(leadDetail['mediaFiles'],invertoryId); 
- delete leadDetail.mediaFiles;
+  if("media_files" in leadDetail) {
+  console.error('media_files Files  >>:', leadDetail['media_files']); 
+ const mediaResult =  await copyMediaData(leadDetail['media_files'],invertoryId); 
+ delete leadDetail.media_files;
     }
  }
  catch (err) {
@@ -143,10 +143,10 @@ if (error1) {
             console.error('Fetched lead data >>:', leadDetail); 
 /// Media File copy    
 try{
-  if("mediaFiles" in leadDetail) {
-  console.error('mediaFiles Files  >>:', leadDetail['mediaFiles']); 
- const mediaResult =  await copyMediaData(leadDetail['mediaFiles'],invertoryId); 
- delete leadDetail.mediaFiles;
+  if("media_files" in leadDetail) {
+  console.error('media_files Files  >>:', leadDetail['media_files']); 
+ const mediaResult =  await copyMediaData(leadDetail['media_files'],invertoryId); 
+ delete leadDetail.media_files;
     }
  }
  catch (err) {
@@ -384,11 +384,11 @@ const { data: data1, error: error1 } = await _supabase
 //   ${invertoryReturnColumn},
 //   contacts(${returnContactColumn}),
 //   propertyType(${['title','property_type'].join(', ')}),
-//   mediaFiles(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
+//   media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
 // `)
 .from('rUserInventories')
   .select(`inventories(${invertoryReturnColumn},contacts(${returnContactColumn}),
-  propertyType(${['title','property_type'].join(', ')}),mediaFiles(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')}))
+  propertyType(${['title','property_type'].join(', ')}),media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')}))
 `)
   .eq('is_deleted', false)
   .eq('user_id', userInfo.id)
@@ -463,7 +463,7 @@ async function asyncgetLeadDetails(leadId) {
   .from('leads')
   .select(`
   *,
-  mediaFiles(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
+  media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
 `)
   .eq('is_deleted', false)
   .eq('id', leadId).single();
@@ -476,7 +476,7 @@ async function asyncgetInventoryDetails(inventoryId) {
   ${invertoryReturnColumn},
   contacts(${returnContactColumn}),
   propertyType(${['title','property_type'].join(', ')}),
-  mediaFiles(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
+  media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
 `).eq('is_deleted', false)
   .eq('inventory_id', inventoryId).single();
 }
@@ -484,7 +484,7 @@ async function asyncgetInventoryDetails(inventoryId) {
 
 async function copyMediaData(mediaDataList,invertoryId){
   try{
-    console.error('mediaFiles Files ***** >>:', mediaDataList); 
+    console.error('media_files Files ***** >>:', mediaDataList); 
 
    const updatedMediaFiles = mediaDataList.map(item => ({
      ...item,  // Spread the existing properties
@@ -492,9 +492,9 @@ async function copyMediaData(mediaDataList,invertoryId){
      media_for:"inventory"
    }));
 
-   // Fetch existing records from mediaFiles based on file_id
+   // Fetch existing records from media_files based on file_id
 // const { data: existingFiles, error: fetchError } = await _supabase
-// .from('mediaFiles')
+// .from('media_files')
 // .select('*')
 // .in('file_id', updatedMediaFiles.map(file => file.file_id));  // Check by file_id
 
@@ -503,14 +503,14 @@ async function copyMediaData(mediaDataList,invertoryId){
 // }
 
 //    const { data, error } =  await _supabase
-//      .from('mediaFiles')
+//      .from('media_files')
 //      .insert(
 //        updatedMediaFiles
 //      ).select('*');
 
 // Perform the insert/upsert operation with the filtered list
 const { data, error } = await _supabase
-  .from('mediaFiles')
+  .from('media_files')
   .upsert(updatedMediaFiles, { onConflict: ['file_id'] })
   .select('*');  // Fetch inserted rows
    

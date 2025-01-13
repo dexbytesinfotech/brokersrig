@@ -673,14 +673,14 @@ catch (err)
 async function asyncgetLeadDetails(leadId) {
   return await _supabase
   .from('leads')
-  .select(`
+  .select(`8
   ${leadReturnColumn},
   contacts(${returnContactColumn}),
   propertyType(${['title','property_type'].join(', ')}),
-  mediaFiles(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
+  media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
 `)
   .eq('is_deleted', false)
-  .eq('mediaFiles.is_deleted', false)
+  .eq('media_files.is_deleted', false)
   .eq('id', leadId).single();
 }
 
