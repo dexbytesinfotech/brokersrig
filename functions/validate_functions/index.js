@@ -119,6 +119,46 @@ case 'delete':{
 return reqData;
 }
 
+/**
+ * Filters out specified keys from an object.
+ *
+ * @param {Object} data - The object to filter.
+ * @param {string[]} keysToExclude - An array of keys to exclude from the object.
+ * @returns {Object} A new object with the specified keys excluded.
+ */
+export function validateRequredReqFields(data, keysToExclude = []) {
+  // Find missing keys
+  const missingKeys = keysToExclude.filter(key => !(key in data));
+  
+  if (missingKeys.length > 0) {
+    // Return missing keys if any are found
+    return { missingKeys };
+  }
+
+  // Filter out excludeKeys from the object if all keys exist
+  const filteredData = Object.fromEntries(
+    Object.entries(data).filter(([key]) => !keysToExclude.includes(key))
+  );
+
+  return { data, missingKeys: [] }; // No missing keys
+}
+
+//, optionalKeysToExclude = []
+export function getFilteredReqData(data, keysToExclude = []) {
+  // // Find missing keys
+  // const missingKeys = keysToExclude.filter(key => !(key in data));
+  // if (missingKeys.length > 0) {
+  //   // Return missing keys if any are found
+  //   return {};
+  // }
+  // Filter out excludeKeys from the object if all keys exist
+  const filteredData = Object.fromEntries(
+    Object.entries(data).filter(([key]) => keysToExclude.includes(key))
+  );
+return filteredData; // No missing keys
+}
+
+
 
 
 
@@ -200,7 +240,7 @@ export function formatNumber(num) {
 }
 
 export function generateUniqueIntId(options = {}) {
-  const { randomRange = 1000,length = 4 ,sliceLength = 6 } = options; // Destructure options with defaults
+  const {length = 4 ,sliceLength = 6 } = options; // Destructure options with defaults
   const timestamp = Date.now(); // Get the current timestamp in milliseconds
   // const randomPart = Math.floor(Math.random() * randomRange); // Random number based on randomRange
   const randomPart = getFixedLengthRandomNumber(length);

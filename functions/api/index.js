@@ -5,9 +5,9 @@ import { validateHeaders,getApiRequest,validateEndPoint,getMinMaxPriceFromBudget
 import {verifyJWT } from "../jwt_auth/index.js";
 import {pulishInvertory,getInventories,getInventoryDetail} from "../inventory/index.js";
 import {getPriceRange,addMediaFile,deleteMediaFile} from "../mobile_app_config/index.js";
+import {addProject,addListing,getProjects,getProjectDetails} from "../project/index.js";
 
 import {userLogin,updateUserProfile,forgotPassword,getProfile,setPassword,changePassword,deleteAccount,registerUser,manageUserBusinessCard} from "../user/index.js";
-
 
 
 // Environment variables
@@ -122,7 +122,40 @@ serve(async (req) => {
     return await manageUserBusinessCard(req,userInfo,"deleteCard");
    }
 
+   else if(validateEndPoint==="/change_password" && validateSingleApiMethods('POST',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await changePassword(req,userInfo);
+   }
+   
+   else if(validateEndPoint==="/delete_account" && validateSingleApiMethods('DELETE',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await deleteAccount(req,userInfo);
+   }
 
+   // add Project
+   else if(validateEndPoint==="/project/add" && validateSingleApiMethods('POST',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await addProject(req,userInfo);
+   }
+
+   else if(validateEndPoint==="/project/add_listing" && validateSingleApiMethods('POST',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await addListing(req,userInfo);
+   }
+
+   
 
 
    else if(validateEndPoint==="/mobile_app_config/get_price_range" && validateSingleApiMethods('GET',req.headers).length===0){
@@ -146,21 +179,7 @@ serve(async (req) => {
 
 
 
-   else if(validateEndPoint==="/change_password" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await changePassword(req,userInfo);
-   }
-   
-   else if(validateEndPoint==="/delete_account" && validateSingleApiMethods('DELETE',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await deleteAccount(req,userInfo);
-   }
+  
    
    
 

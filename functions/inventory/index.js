@@ -42,7 +42,7 @@ if(error) {
 var invertoryId;
 var updatedMediaFiles;
 if(data==null){
-  invertoryId = generateUniqueIntId({randomRange:10000});
+  invertoryId = generateUniqueIntId({length : 4 ,sliceLength : 6});
   console.log('invertoryId >>>> if :', invertoryId);
 const { data: leadDetail, error: error1 }  = await asyncgetLeadDetails(leadId);
 if (error1) {
@@ -129,7 +129,7 @@ else{
   // Update Invertory
   invertoryId = data["inventory_id"];
   if(invertoryId===null){
-    invertoryId = generateUniqueIntId({randomRange:10000});
+    invertoryId = generateUniqueIntId({length : 4 ,sliceLength : 6});
   }
   console.log('invertoryId >>>> else :', invertoryId);
 

@@ -84,10 +84,6 @@ async function addLead(req,userInfo) {
             /// Get data from API
 const reqData = await getApiRequest(req,apiMethod);
 
-if (reqData["id"]<= 0) {
-  return returnResponse(400,JSON.stringify({ error: "Unathoried user"}),null);
-}
-
  console.log(' User information ######################', userInfo);
 
 const userData = {};
@@ -673,8 +669,7 @@ catch (err)
 async function asyncgetLeadDetails(leadId) {
   return await _supabase
   .from('leads')
-  .select(`8
-  ${leadReturnColumn},
+  .select(`${leadReturnColumn},
   contacts(${returnContactColumn}),
   propertyType(${['title','property_type'].join(', ')}),
   media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})

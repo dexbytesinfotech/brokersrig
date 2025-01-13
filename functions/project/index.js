@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
 import { returnResponse } from "../response_formatter_js/index.js";// Assuming this module exports `returnResponse`
-import { validateHeaders, getHeaderAuthorization, getApiRequest,validateEndPoint } from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
+import { validateHeaders, getApiRequest,getMinMaxPriceFromBudgetCode,getPriceFromString,generateUniqueIntId,validateRequredReqFields,getFilteredReqData} from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
 import {verifyJWT } from "../jwt_auth/index.js";
 
 // Environment variables
@@ -9,164 +9,367 @@ const _supabaseUrl = Deno.env.get('BASE_SUPABASE_URL');
 const _supabaseAnonKey = Deno.env.get('BASE_SUPABASE_ANON_KEY');
 const _supabase = createClient(_supabaseUrl, _supabaseAnonKey);
 
-serve(async (req) => {
-  try {
-         const url = new URL(req.url);
-         console.log("called API >>>> :", url);
+const invertoryReturnColumn = ["created_at","preferred_location","min_budget","purpose","additional_details","lead_type","property_size","assigne_id","max_budget",
+"city","lat","lng","full_adress","amount_symbol_id","country_code","is_deleted","is_verified","asking_price","sell_type","inventory_id","lead_id","budget_label"].join(', ');
+const returnContactColumn = ['phone','first_name','last_name','contact_id','county_code'].join(', ');
 
-            // Validate headers and method
-  const validateError = validateEndPoint(req,['/project/get_lead_type','/lead/add_lead','/lead/update_lead','/lead/delete_lead','/lead/get_leads']);
+export async function addProject(req,userInfo){
+  try
+  {
+                /// Get data from API
+const reqData = await getApiRequest(req,"POST");
 
-  if (validateError===null) {
-    return returnResponse(400,JSON.stringify({ error: "Validation failed", details: validateError }),null);
+console.log(' User information ######################', userInfo);
+
+  const missingKeys = validateRequredReqFields(reqData,['title','developer_id','project_type','project_status','city','project_full_address','lat','long']);
+  if (missingKeys['missingKeys'].length > 0) {
+    console.error('Please enter mandatory fields data', "error");
+    return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
   }
-  
-  const authToken = getHeaderAuthorization(req.headers);
 
-  const userInfo = await verifyJWT(authToken);
-  if (userInfo===null) {
-    return returnResponse(400,JSON.stringify({ error: "Unexpected token"}),null);
+      const projectReqData = getFilteredReqData(reqData,['title','developer_id','project_type','project_status','nearby_project','remark']);
+      const addressData =  getFilteredReqData(reqData,['city','project_full_address','landmark','lat','long','country','area_code']);
+     console.log(' projectReqData information ###################### projectReqData', projectReqData);
+     const projectId = generateUniqueIntId({length : 4 ,sliceLength : 6});
+     projectReqData['project_id'] = projectId;
+     console.log(' addressData information ###################### addressData', addressData);
+ 
+     addressData['project_id'] = projectId;
+    //  return returnResponse(200, `Project details ${projectId}`,projectReqData);
+      const { data, error } = await _supabase
+      .from('projects')
+      .insert(
+        projectReqData,
+      )
+      .select(`id`)
+      .single();
+      if (error) {
+        console.error('Failed:', error);
+        return returnResponse(500, `Project add Failed: ${error.message}`, null);
+      }
+    console.log(' User information ###################### leadDetails >> ', data);
+    // Add lead in user lead refrence table
+    if(!(data===null)){
+      const { data, error } = await _supabase
+      .from('rUserProjects')
+      .insert([
+        {
+          "user_id": userInfo['id'],
+          "project_id": projectId
+        },
+      ])
+      .select(`project_id`)
+      .single();
+      const { data:addedAddressData, error:addressError } = await _supabase
+      .from('project_address')
+      .insert(addressData)
+      .select(`project_id`)
+      .single();
+      if (error) {
+        console.error('Failed:', error);
+        return returnResponse(500, `Failed: ${error.message}`, null);
+      }
+
+    }
+
+    console.log(' User information ***************** projectDetails > leadId > ', data);
+    const { data: projectDetails, error: error1 }  = await asyncgetProjectDetails(projectId);
+    if (error1) {
+      console.error('Error fetching joined data:', error1);
+      return returnResponse(500, `Failed: ${error.message}`, null);
+    } 
+    
+    if(projectDetails!=null){
+      return returnResponse(200, 'Success', projectDetails);
+    }
+    else
+    {
+      return returnResponse(400, 'No data found', {});
+    }
+    
   }
-
-  /// add leads
-  if(validateError==="/lead/get_lead_type"){
-    return await getLeadType(req,userInfo);
-   }
-   else if(validateError==="/lead/get_leads"){
-    return await getLeads(req,userInfo);
-   }
-  else if(validateError==="/lead/add_lead"){
-   return await addLead(req,userInfo);
-  }
-  else if(validateError==="/lead/update_lead"){
-    return await updateLead(req,userInfo);
-   }
-   else if(validateError==="/lead/delete_lead"){
-    return await deleteLead(req,userInfo);
-   }
-
-  return returnResponse(400,JSON.stringify({ error: "Validation failed", details: validateError }),null);
-
-  } 
   catch (err) {
     console.error('Server error: new', err);
-    return returnResponse(500,`User not exist`,null);
+    return returnResponse(500,`Server side error ${err}`,null);
   }
-});
+}
 
 
-// Add lead
-async function addLead(req,userInfo) {
-  try {
-           const apiMethod = "POST";
-            // Validate headers and method
-            const errors = validateHeaders(apiMethod,req.headers);
-            if (errors.length > 0) {
-              return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
+export async function addListing(req,userInfo){
+  try
+  {
+                /// Get data from API
+const reqData = await getApiRequest(req,"POST");
+
+console.log(' User information ######################', userInfo);
+
+  const missingKeys = validateRequredReqFields(reqData,['property_type','property_size','asking_price','number_of_unit','project_id']);
+  if (missingKeys['missingKeys'].length > 0) {
+    console.error('Please enter mandatory fields data', "error");
+    return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+  }
+
+ const projectReqData = getFilteredReqData(reqData,['property_type','property_size','asking_price','number_of_unit','remark','project_id']);
+
+ const projectId = projectReqData['project_id'];
+     projectReqData['is_published'] = false;
+    const invertoryId = generateUniqueIntId({length : 4 ,sliceLength : 6});
+    projectReqData['project_id'] = projectId;
+    projectReqData['inventory_id'] = invertoryId;
+
+    if('asking_price' in projectReqData){
+      const budgetValues = getPriceFromString(projectReqData["asking_price"]);
+      projectReqData["min_budget"] = 0;
+      projectReqData["max_budget"] = 0;
+      projectReqData["asking_price"] = budgetValues[0];
+       }
+    // if(reqData["lead_type"]=="sell_lead"){
+    //   if('sell_type' in reqData){    
+    //     projectReqData["sell_type"] = reqData["sell_type"];
+    //     }
+    //   if('asking_price' in projectReqData){
+    //     const budgetValues = getPriceFromString(projectReqData["asking_price"]);
+    //     projectReqData["min_budget"] = 0;
+    //     projectReqData["max_budget"] = 0;
+    //     projectReqData["asking_price"] = budgetValues[0];
+    //      }
+    // }
+
+
+
+    console.log(' projectReqData information ###################### projectReqData', projectReqData);
+    //  return returnResponse(200, `Project details ${projectId}`,projectReqData);
+      const { data, error } = await _supabase
+      .from('inventories')
+      .insert(
+        projectReqData,
+      )
+      .select(`id`)
+      .single();
+      if (error) {
+        console.error('Failed:', error);
+        return returnResponse(500, `Add Listing Failed: ${error.message}`, null);
+      }
+    console.log(' User information ###################### leadDetails >> ', data);
+    // Add lead in user lead refrence table
+    if(!(data===null)){
+        // Inset in invertory table
+        const { data:daveData, error:error1 } = await _supabase
+        .from('rUserInventories')
+        .insert(
+          {
+            "user_id": userInfo['id'],
+            "project_id": projectId,
+            "inventory_id":invertoryId
+          },
+        )
+        .select(`*`)
+        .single();
+      if (error) {
+        console.error('Failed:', error);
+        return returnResponse(500, `Failed: ${error.message}`, null);
+      }
+
+    }
+
+    console.log(' User information ***************** projectDetails > leadId > ', data);
+    const { data: projectDetails, error: error1 }  = await asyncgetProjectDetails(projectId);
+    if (error1) {
+      console.error('Error fetching joined data:', error1);
+      return returnResponse(500, `Failed: ${error.message}`, null);
+    } 
+    
+    if(projectDetails!=null){
+      return returnResponse(200, 'Success', projectDetails);
+    }
+    else
+    {
+      return returnResponse(400, 'No data found', {});
+    }
+    
+  }
+  catch (err) {
+    console.error('Server error: new', err);
+    return returnResponse(500,`Server side error ${err}`,null);
+  }
+}
+
+
+export async function pulishProjectInvertory(req,userInfo){
+  try
+  {
+/// Get data from API
+const reqData = await getApiRequest(req,"POST");
+if (reqData["lead_id"]<= 0) {
+
+  return returnResponse(400,"Lead id mandatory",null);
+}
+const leadId = reqData['lead_id'];
+// Check if the email exists in the `users` table
+const { data, error } = await _supabase
+.from('rUserInventories')
+.select('*')
+.eq('user_id',userInfo['id'])
+.eq('lead_id',leadId)
+.eq('is_deleted',false)
+.maybeSingle();
+
+console.log('Found data', data);
+
+if(error) {
+  console.error('Server error: new', error);
+  return returnResponse(500,`Data not found`,null);
+}
+var invertoryId;
+var updatedMediaFiles;
+if(data==null){
+  invertoryId = generateUniqueIntId({length : 4 ,sliceLength : 6});
+  console.log('invertoryId >>>> if :', invertoryId);
+const { data: leadDetail, error: error1 }  = await asyncgetLeadDetails(leadId);
+if (error1) {
+              console.error('Error fetching joined data:', error1);
+              return returnResponse(500, `Failed: ${error1.message}`, null);
+            }
+ if(!(leadDetail===null)){
+  leadDetail["inventory_id"] = invertoryId;
+  leadDetail["lead_id"] = reqData['lead_id'];
+    // Inset in invertory table
+    const { data:daveData, error:error1 } = await _supabase
+    .from('rUserInventories')
+    .insert(
+      {
+        "user_id": userInfo['id'],
+        "lead_id": leadId,
+        "inventory_id":invertoryId
+      },
+    )
+    .select(`*`)
+    .single();
+    if (error1) {
+      console.error('Failed:', error1);
+      return returnResponse(500, `Failed: ${error1.message}`, null);
+    }
+
+const { data:daveData1, error:error2} = await _supabase
+.from('rUserLeads')
+.update(
+  {
+    "inventory_id":invertoryId
+  },
+)
+.eq('lead_id', leadId)
+.select(`*`)
+.single();
+
+console.error('Fetched lead data >>00:', leadDetail); 
+
+
+/// Media File copy    
+try{
+  if("media_files" in leadDetail) {
+  console.error('media_files Files  >>:', leadDetail['media_files']); 
+ const mediaResult =  await copyMediaData(leadDetail['media_files'],invertoryId); 
+ delete leadDetail.media_files;
+    }
+ }
+ catch (err) {
+   return "";
+ } 
+
+ 
+  // Inset in invertory table
+  const {  data:daveData2, error:error3 } = await _supabase
+  .from('inventories')
+  .insert(
+    leadDetail,
+  )
+  .select('inventory_id')
+  .single();
+  if (error3) {
+    console.error('Failed:', error3);
+    return returnResponse(500, `Failed: ${error3.message}`, null);
+  }
+
+ 
+
+  const { data: inventoryDetail, error: errorInventory }  = await asyncgetInventoryDetails(daveData2["inventory_id"]);
+  if (errorInventory) {
+                console.error('Error fetching joined data:', error1);
+                return returnResponse(500,`Server side error ${err}`,null);
+              } 
+  if(inventoryDetail!=null){
+    return returnResponse(200, 'Published', leadDetail);
+  }
+  else
+  {
+    return returnResponse(500,`Server side error ${err}`,null);
+  }
+ } 
+}
+else{
+  // Update Invertory
+  invertoryId = data["inventory_id"];
+  if(invertoryId===null){
+    invertoryId = generateUniqueIntId({length : 4 ,sliceLength : 6});
+  }
+  console.log('invertoryId >>>> else :', invertoryId);
+
+  const { data: leadDetail, error: error1 }  = await asyncgetLeadDetails(leadId);
+if (error1) {
+              console.error('Error fetching joined data:', error1);
+              return returnResponse(500, `Failed: ${error1.message}`, null);
             }
 
-            /// Get data from API
-const reqData = await getApiRequest(req,apiMethod);
+            leadDetail["lead_id"] = reqData['lead_id'];  
+            console.error('Fetched lead data >>:', leadDetail); 
+/// Media File copy    
+try{
+  if("media_files" in leadDetail) {
+  console.error('media_files Files  >>:', leadDetail['media_files']); 
+ const mediaResult =  await copyMediaData(leadDetail['media_files'],invertoryId); 
+ delete leadDetail.media_files;
+    }
+ }
+ catch (err) {
+   return "";
+ } 
 
-if (reqData["id"]<= 0) {
-  return returnResponse(400,JSON.stringify({ error: "Unathoried user"}),null);
+
+const { data:daveData1, error:error2} = await _supabase
+.from('inventories')
+.update(
+  leadDetail
+)
+.eq('inventory_id', invertoryId)
+.select('inventory_id')
+.single();
+
+if (error2) {
+  console.error('Failed:', error2);
+  return returnResponse(500, `Failed: ${error2.message}`, null);
 }
 
- console.log(' User information ######################', userInfo);
-
-const userData = {};
-
-if('property_type_id' in reqData && 'lead_type_id' in reqData && 'contact_id' in reqData && 'city' in reqData && ('min_budget' in reqData || 'max_budget' in reqData)) {
-
-  // userData['user_id'] = userInfo['id'];
-
-  userData["property_type_id"] = reqData["property_type_id"];
-  userData["lead_type_id"] = reqData["lead_type_id"];
-  userData["contact_id"] = reqData["contact_id"];
-  userData["city"] = reqData["city"];
 
 
-  if('additional_details' in reqData){
-  userData["additional_details"] = reqData["additional_details"];
-  }
-
-  if('property_size' in reqData){
-  userData["property_size"] = reqData["property_size"];
-  }
-
-  if('min_budget' in reqData){
-  userData["min_budget"] = reqData["min_budget"];
-  }
-
-  if('max_budget' in reqData){
-  userData["max_budget"] = reqData["max_budget"];
-  }
-  
-  if('lat' in reqData){
-  userData["lat"] = reqData["lat"];
-  }
-  
-  if('lng' in reqData){
-  userData["lng"] = reqData["lng"];
-  }
-  
-  if('full_adress' in reqData){
-  userData["full_adress"] = reqData["full_adress"];
-  }
-  
-  if('amount_symbol_id' in reqData){
-  userData["amount_symbol_id"] = reqData["amount_symbol_id"];
-  }
-  
-  if('country_code' in reqData){
-  userData["country_code"] = reqData["country_code"];
-  }
-
+const { data: inventoryDetail, error: errorInventory }  = await asyncgetInventoryDetails(daveData1["inventory_id"]);
+if (errorInventory) {
+              console.error('Error fetching joined data:', error1);
+              return returnResponse(500,`Server side error ${err}`,null);
+            } 
+if(inventoryDetail!=null){
+  return returnResponse(200, 'Published', leadDetail);
 }
-console.log(' User information ###################### userData', userData);
-// Check if the email exists in the `users` table
-if(!(JSON.stringify(userData) === '{}')){
-  const { data, error } = await _supabase
-  .from('leads')
-  .insert(
-    userData,
-  )
-  .select()
-  .single();
-  if (error) {
-    console.error('Failed:', error);
-    return returnResponse(500, `Failed: ${error.message}`, null);
-  }
-const leadDetails = data;
-console.log(' User information ###################### leadDetails', leadDetails);
-// Add lead in user lead refrence table
-if(!(leadDetails===null)){
-  const { data, error } = await _supabase
-  .from('rUserLeads')
-  .insert([
-    {
-      "user_id": userInfo['id'],
-      "lead_id": leadDetails['id']
-    },
-  ])
-  .select()
-  .single();
-  if (error) {
-    console.error('Failed:', error);
-    return returnResponse(500, `Failed: ${error.message}`, null);
-  }
+else
+{
+  return returnResponse(500,`Server side error ${err}`,null);
 }
 
-return returnResponse(200, `Lead created successfully`, leadDetails); 
 }
-else {
-  console.error('Please enter mandatory fields data', "error");
-  return returnResponse(500, `Please enter mandatory fields data`, null);
-}
-}catch (err) {
-            console.error('Server error: new', err);
-            return returnResponse(500,`User not exist`,null);
-          }
+  }
+  catch (err) {
+    console.error('Server error: new', err);
+    return returnResponse(500,`Server side error ${err}`,null);
+  }
 }
 
 
@@ -211,14 +414,14 @@ console.log(' User information ######################', userInfo);
 
 const userData = {};
 
-if('lead_id' in reqData && ('min_budget' in reqData || 'max_budget' in reqData)) {
+if('lead_id' in reqData &&  ('budget_code' in reqData || 'asking_price' in reqData)) {
 
 // userData['user_id'] = userInfo['id'];
-if('property_type_id' in reqData){
-userData["property_type_id"] = reqData["property_type_id"];
+if('property_type' in reqData){
+userData["property_type"] = reqData["property_type"];
 }
-if('lead_type_id' in reqData){
-userData["lead_type_id"] = reqData["lead_type_id"];
+if('lead_type' in reqData){
+userData["lead_type"] = reqData["lead_type"];
 }
 
 if('contact_id' in reqData){
@@ -238,12 +441,24 @@ if('property_size' in reqData){
 userData["property_size"] = reqData["property_size"];
 }
 
-if('min_budget' in reqData){
-userData["min_budget"] = reqData["min_budget"];
-}
 
-if('max_budget' in reqData){
-userData["max_budget"] = reqData["max_budget"];
+if(reqData["lead_type"]=="sell_lead"){
+  if('sell_type' in reqData){    
+    userData["sell_type"] = reqData["sell_type"];
+    }
+  if('asking_price' in reqData){
+    const budgetValues = getPriceFromString(reqData["asking_price"]);
+       userData["min_budget"] = 0;
+       userData["max_budget"] = 0;
+       userData["asking_price"] = budgetValues[0];
+     }
+}
+else{
+  if('budget_code' in reqData){
+    const budgetValues = getMinMaxPriceFromBudgetCode(reqData["budget_code"]);
+       userData["min_budget"] = budgetValues[0];
+       userData["max_budget"] = budgetValues[1];
+     }
 }
 
 if('lat' in reqData){
@@ -253,6 +468,10 @@ userData["lat"] = reqData["lat"];
 if('lng' in reqData){
 userData["lng"] = reqData["lng"];
 }
+
+if('preferred_location' in reqData){
+  userData["preferred_location"] = reqData["preferred_location"];
+  }
 
 if('full_adress' in reqData){
 userData["full_adress"] = reqData["full_adress"];
@@ -275,33 +494,47 @@ const { data, error } = await _supabase
 .update(
 userData,
 )
-.select()
+.eq('id', reqData['lead_id'])
+.select(`id`)
 .single();
 if (error) {
 console.error('Failed:', error);
 return returnResponse(500, `Failed: ${error.message}`, null);
 }
-const leadDetails = data;
+var leadDetails = data;
 console.log(' User information ###################### leadDetails', leadDetails);
 // Add lead in user lead refrence table
-if(!(leadDetails===null)){
-const { data, error } = await _supabase
-.from('rUserLeads')
-.insert([
-{
-"user_id": userInfo['id'],
-"lead_id": leadDetails['id']
-},
-])
-.select()
-.single();
-if (error) {
-console.error('Failed:', error);
-return returnResponse(500, `Failed: ${error.message}`, null);
-}
-}
+// if(!(leadDetails===null)){
+// const { data, error } = await _supabase
+// .from('rUserLeads')
+// .insert([
+// {
+// "user_id": userInfo['id'],
+// "lead_id": leadDetails['id']
+// },
+// ])
+// .select(`id`)
+// .single();
 
-return returnResponse(200, `Lead created successfully`, leadDetails); 
+// if (error) {
+// console.error('Failed:', error);
+// return returnResponse(500, `Failed: ${error.message}`, null);
+// }
+// }
+
+
+const { data: leadDetail, error: error1 }  = await asyncgetLeadDetails(reqData['lead_id']);
+if (error1) {
+  console.error('Error fetching joined data:', error1);
+  return returnResponse(500, `Failed: ${error.message}`, null);
+} 
+if(leadDetail!=null && leadDetail.length>0){
+  return returnResponse(200, 'Success', leadDetail);
+}
+else
+{
+  return returnResponse(400, 'No data found', []);
+}
 }
 else {
 console.error('Please enter mandatory fields data', "error");
@@ -313,96 +546,8 @@ return returnResponse(500, `Please enter mandatory fields data`, null);
    }
 }
 
-
-
-/// Delete leads
-async function deleteLead(req,userInfo) {
-  try {
-           const apiMethod = "DELETE";
-            // Validate headers and method
-            const errors = validateHeaders(apiMethod,req.headers);
-            if (errors.length > 0) {
-              return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
-            }
-
-            /// Get data from API
-const reqData = await getApiRequest(req,apiMethod);
-console.log(' User information ######################  reqData', reqData);
-if (reqData["id"]<= 0) {
-  return returnResponse(400,"Unathoried user",null);
-}
-
-if(!('lead_id' in reqData) ||  reqData["lead_id"]===null){
-  return returnResponse(400,"Contact id Reqired",null);
-}
-// Check if the email exists in the `users` table
-const { data, error } = await _supabase
-.from('rUserLeads')
-.select('*')
-.eq('user_id',userInfo['id'])
-.eq('lead_id',reqData['lead_id'])
-.eq('is_deleted',false)
-.maybeSingle();
-if (error) {
-  console.error('Error checking leads:', error);
-  return returnResponse(500, `Error checking email: ${error.message}`, null);
-}
-console.log(' User information ######################  data', data);
-
-if (data===null) {
-  console.error('Contact already added:', error);
-  return returnResponse(500, `Selected data not found..`, null);
-}
-console.log(' User information ######################', userInfo);
-
-const userData = {"is_deleted":true};
-
-// Check if the email exists in the `users` table
-if(!(JSON.stringify(userData) === '{}')){
-  const { data, error } = await _supabase
-  .from('rUserLeads')
-  .update([
-    userData,
-  ])
-  .eq('lead_id', reqData["lead_id"])
-  .select();
-
-  const { data: updateData, error: updateError } = await _supabase
-  .from('leads')
-  .update([
-    userData,
-  ])
-  .eq('id', reqData["lead_id"])
-  .select();
-
-  if (error) {
-    console.error('Failed:', error);
-    return returnResponse(500, `Failed: ${error.message}`, null);
-  }
-const leadDetails = data;
-try{
-  delete leadDetails.id;
-delete leadDetails.user_id;
-}
-catch (err) {
-
-}
-return returnResponse(200, `Deleted successfully`, leadDetails); 
-}
-else {
-  console.error('Please enter mandatory fields data', "error");
-  return returnResponse(500, `Please enter mandatory fields data`, null);
-}
-}
-catch (err) 
-{
-            console.error('Server error: new', err);
-            return returnResponse(500,`User not exist`,null);
- }
-}
-
 /// Get  Lead type
-async function getLeadType(req,userInfo) {
+export async function getProjectInventories(req,userInfo) {
   try {
            const apiMethod = "GET";
             // Validate headers and method
@@ -411,63 +556,25 @@ async function getLeadType(req,userInfo) {
               return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
             }
 
-const returnColumn = ['id','created_at','title'].join(', ');
-// Check if the email exists in the `users` table
-const { data, error } = await _supabase
-  .from('leadType')
-  .select(returnColumn).eq("is_deleted",false);
-
-if (error) {
-  console.error('Error checking leads:', error);
-  return returnResponse(500, `Error checking leads: ${error.message}`, null);
-}
-
-// Check for multiple rows and handle accordingly
-if (!data || data.length === 0) {
-  console.log('No leads found');
-  return returnResponse(404, 'No leads found', null);
-}
-
-// Single row returned
-const leads = data;
-console.log('Contact found:', leads);
-return returnResponse(200, 'Account type retrieved successfully.', leads);
-}
-catch (err) 
-{
-            console.error('Server error: new', err);
-            return returnResponse(500,`User not exist`,null);
- }
-}
-
-
-/// Get  Lead type
-async function getLeads(req,userInfo) {
-  try {
-           const apiMethod = "GET";
-            // Validate headers and method
-            const errors = validateHeaders(apiMethod,req.headers);
-            if (errors.length > 0) {
-              return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
-            }
-
-const returnColumn = ['id','created_at','lead_id'].join(', ');
-
-// const { data:data1, error:error1 } = await _supabase
-//   .from('rUserLeads')
-//   .select('*')
-//   .eq('is_deleted', false)
-//   .eq('user_id', userInfo.id).select();
-
+//             `inventories(${invertoryReturnColumn},contacts(${returnContactColumn}),
+//   propertyType(${['title','property_type'].join(', ')}))
+// `
 const { data: data1, error: error1 } = await _supabase
-  .from('rUserLeads')
-  .select(`
-    *,
-    leads(*)
-  `)
+//   .from('rUserInventories')
+//   .select(`
+//   ${invertoryReturnColumn},
+//   contacts(${returnContactColumn}),
+//   propertyType(${['title','property_type'].join(', ')}),
+//   media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
+// `)
+.from('rUserInventories')
+  .select(`inventories(${invertoryReturnColumn},contacts(${returnContactColumn}),
+  propertyType(${['title','property_type'].join(', ')}),media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')}))
+`)
   .eq('is_deleted', false)
   .eq('user_id', userInfo.id)
-  .eq('leads.is_deleted', false);
+  .eq('inventories.is_deleted', false) // Filter on contact's 'is_deleted' (if needed)
+  .order('id', { ascending: false });
 
 if (error1) {
   console.error('Error fetching joined data:', error1);
@@ -477,11 +584,11 @@ if (error1) {
 
 // // Single row returned
 // const leads = leadsData;
-console.log('Contact found:', data1);
+console.log('lead found:', data1);
 
 if(data1!=null && data1.length>0){
-  const leadList = data1.map((item) => item.leads).filter((lead) => lead != null);
-  return returnResponse(200, 'Success', leadList);
+  const inventorieList = data1.map((item) => item.inventories).filter((inventorie) => inventorie != null);
+  return returnResponse(200, 'Success', inventorieList);
 }
 else
 {
@@ -494,4 +601,138 @@ catch (err)
             console.error('Server error: new', err);
             return returnResponse(500,`User not exist`,null);
  }
+}
+
+
+/// Get  Lead details
+export async function getInventoryDetail(req,userInfo) {
+  try {
+            const apiMethod = "GET";
+            const reqData = await getApiRequest(req,apiMethod);
+            console.log('Requested inventory_id:', reqData);
+            console.log('Requested inventory_id >>>  :', reqData.get("inventory_id"));
+
+            if (!reqData.has("inventory_id") || reqData.get("inventory_id") === null || reqData.get("inventory_id") <= 0) {
+              console.error('Please enter mandatory fields data', "error");
+              return returnResponse(500, `Please enter mandatory fields data`, null);
+            }
+     
+ const { data: leadDetail, error: error1 }  = await asyncgetInventoryDetails(reqData.get("inventory_id"));
+if (error1) {
+              console.error('Error fetching joined data:', error1);
+              return returnResponse(500, `Not found`, null);
+            } 
+
+if(leadDetail!=null){
+  return returnResponse(200, 'Success', leadDetail);
+}
+else
+{
+  return returnResponse(400, 'No data found', {});
+}
+
+}
+catch (err) 
+{
+            console.error('Server error: new', err);
+            return returnResponse(500,`Not found`,null);
+ }
+}
+
+
+async function asyncgetProjectDetails(projectId) {
+  return await _supabase
+  .from('projects')
+  .select(`*`)
+  .eq('is_deleted', false)
+  .eq('project_id', projectId).single();
+}
+
+
+async function asyncgetLeadDetails(projectId) {
+  return await _supabase
+  .from('projects')
+  .select(`*`)
+  .eq('is_deleted', false)
+  .eq('project_id', projectId).single();
+}
+
+async function asyncgetInventoryDetails(inventoryId) {
+  return await _supabase
+  .from('inventories')
+  .select(`
+  ${invertoryReturnColumn},
+  contacts(${returnContactColumn}),
+  propertyType(${['title','property_type'].join(', ')}),
+  media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
+`).eq('is_deleted', false)
+  .eq('inventory_id', inventoryId).single();
+}
+
+
+async function copyMediaData(mediaDataList,invertoryId){
+  try{
+    console.error('media_files Files ***** >>:', mediaDataList); 
+
+   const updatedMediaFiles = mediaDataList.map(item => ({
+     ...item,  // Spread the existing properties
+     inventory_id: invertoryId,  // Add the inventory_id
+     media_for:"inventory"
+   }));
+
+   // Fetch existing records from media_files based on file_id
+// const { data: existingFiles, error: fetchError } = await _supabase
+// .from('media_files')
+// .select('*')
+// .in('file_id', updatedMediaFiles.map(file => file.file_id));  // Check by file_id
+
+// if (fetchError) {
+// console.error('Error fetching existing files:', fetchError.message);
+// }
+
+//    const { data, error } =  await _supabase
+//      .from('media_files')
+//      .insert(
+//        updatedMediaFiles
+//      ).select('*');
+
+// Perform the insert/upsert operation with the filtered list
+const { data, error } = await _supabase
+  .from('media_files')
+  .upsert(updatedMediaFiles, { onConflict: ['file_id'] })
+  .select('*');  // Fetch inserted rows
+   
+   if (error) {
+     console.error('Media file coppy error:', error);
+     return error.message;
+   }
+   return "";
+   }
+   catch (err) {
+     return "";
+   }
+}
+
+async function getLastCreatedId(tableName){
+  var lastCreatedId = 1;
+  try{
+    const { data, error } = await _supabase
+  .from(tableName)
+  .select('id')
+  .order('id', { ascending: false })
+  .limit(1);
+
+if (error) {
+  console.error('Error fetching last ID:', error);
+} else if (data && data.length > 0) {
+  lastCreatedId = (data[0].id)+1;
+  console.log('Last created ID:', lastCreatedId);
+} else {
+  console.log('No records found in the table.');
+}
+  }
+  catch(error){
+
+  }
+return lastCreatedId;
 }
