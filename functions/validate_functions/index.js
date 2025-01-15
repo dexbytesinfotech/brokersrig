@@ -127,6 +127,25 @@ return reqData;
  * @returns {Object} A new object with the specified keys excluded.
  */
 export function validateRequredReqFields(data, keysToExclude = []) {
+
+  console.log(' data   > > >  >', data);
+ 
+  if (data instanceof URLSearchParams) {
+    console.log(' data   > > >  > 000 ' , data);
+// Get all values
+const allParams = {};
+try{
+  for (const [key, value] of data.entries()) {
+    allParams[key] = value;
+  }
+  console.log(' data   > > >  > 111 ', allParams);
+    data =  allParams;
+}
+catch(error){
+  console.log(' data   > > >  >', data);
+}
+  }
+
   // Find missing keys
   const missingKeys = keysToExclude.filter(key => !(key in data));
   
@@ -139,18 +158,27 @@ export function validateRequredReqFields(data, keysToExclude = []) {
   const filteredData = Object.fromEntries(
     Object.entries(data).filter(([key]) => !keysToExclude.includes(key))
   );
-
+  console.log(' data   > >  00 0 >  >', data);
   return { data, missingKeys: [] }; // No missing keys
 }
 
 //, optionalKeysToExclude = []
 export function getFilteredReqData(data, keysToExclude = []) {
-  // // Find missing keys
-  // const missingKeys = keysToExclude.filter(key => !(key in data));
-  // if (missingKeys.length > 0) {
-  //   // Return missing keys if any are found
-  //   return {};
-  // }
+  if (data instanceof URLSearchParams) {
+    console.log(' data   > > >  > 000 ' , data);
+// Get all values
+const allParams = {};
+try{
+  for (const [key, value] of data.entries()) {
+    allParams[key] = value;
+  }
+  console.log(' data   > > >  > 111 ', allParams);
+    data =  allParams;
+}
+catch(error){
+  console.log(' data   > > >  >', data);
+}
+  }
   // Filter out excludeKeys from the object if all keys exist
   const filteredData = Object.fromEntries(
     Object.entries(data).filter(([key]) => keysToExclude.includes(key))
@@ -184,7 +212,11 @@ export function getMinMaxPriceFromBudgetCode(budgetCode) {
   var minValue = match[2];
   var maxValue = match[3];
 
-  if(amountUnit.toLowerCase()==='l'){
+  if(amountUnit.toLowerCase()==='k'){
+    minValue = minValue * 1000;
+    maxValue = maxValue * 1000;
+  }
+  else if(amountUnit.toLowerCase()==='l'){
     minValue = minValue * 100000;
     maxValue = maxValue * 100000;
   }

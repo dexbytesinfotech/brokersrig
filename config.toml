@@ -302,3 +302,6 @@ entrypoint = './functions/user/index.js'
 # other entries
 entrypoint = './functions/jwt_auth_new/index.js'
 
+[functions.developers]
+# other entries
+entrypoint = './functions/developers/index.js'

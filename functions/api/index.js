@@ -5,7 +5,10 @@ import { validateHeaders,getApiRequest,validateEndPoint,getMinMaxPriceFromBudget
 import {verifyJWT } from "../jwt_auth/index.js";
 import {pulishInvertory,getInventories,getInventoryDetail} from "../inventory/index.js";
 import {getPriceRange,addMediaFile,deleteMediaFile} from "../mobile_app_config/index.js";
-import {addProject,addListing,getProjects,getProjectDetails} from "../project/index.js";
+
+import {getDevelopers,addDeveloper} from "../developers/index.js";
+
+import {addProject,addListing,getAllProjects,getProjectListing,addPaymentTerms,getProjectDetail,addProjectAdditionalDetails,addProjectMediaFile,deleteProjectMediaFile} from "../project/index.js";
 
 import {userLogin,updateUserProfile,forgotPassword,getProfile,setPassword,changePassword,deleteAccount,registerUser,manageUserBusinessCard} from "../user/index.js";
 
@@ -155,9 +158,82 @@ serve(async (req) => {
     return await addListing(req,userInfo);
    }
 
+   else if(validateEndPoint==="/project/get_listing" && validateSingleApiMethods('POST',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await getProjectListing(req,userInfo);
+   }
+
+
+   else if(validateEndPoint==="/project/get_projects" && validateSingleApiMethods('POST',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await getAllProjects(req,userInfo);
+   }
+
+   else if(validateEndPoint==="/project/add_payment_terms" && validateSingleApiMethods('POST',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await addPaymentTerms(req,userInfo);
+   }
+
+
+   else if(validateEndPoint==="/project/add_project_additional_details" && validateSingleApiMethods('POST',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await addProjectAdditionalDetails(req,userInfo);
+   }
+
+
+   else if(validateEndPoint==="/project/add_project_media" && validateSingleApiMethods('POST',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await addProjectMediaFile(req,userInfo);
+   }
+
+   else if(validateEndPoint==="/project/delet_project_media" && validateSingleApiMethods('DELETE',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await deleteProjectMediaFile(req,userInfo);
+   }
+
+   else if(validateEndPoint==="/project/project_details" && validateSingleApiMethods('GET',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await getProjectDetail(req);
+   }
+   
+   else if(validateEndPoint==="/developer/add" && validateSingleApiMethods('GET',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await addDeveloper(req);
+   }   
+   else if(validateEndPoint==="/developer/get_developers" && validateSingleApiMethods('GET',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await getDevelopers(req);
+   }
    
 
-
+   
    else if(validateEndPoint==="/mobile_app_config/get_price_range" && validateSingleApiMethods('GET',req.headers).length===0){
     return await getPriceRange(req);
    }

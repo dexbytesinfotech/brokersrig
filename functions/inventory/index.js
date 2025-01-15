@@ -52,33 +52,7 @@ if (error1) {
  if(!(leadDetail===null)){
   leadDetail["inventory_id"] = invertoryId;
   leadDetail["lead_id"] = reqData['lead_id'];
-    // Inset in invertory table
-    const { data:daveData, error:error1 } = await _supabase
-    .from('rUserInventories')
-    .insert(
-      {
-        "user_id": userInfo['id'],
-        "lead_id": leadId,
-        "inventory_id":invertoryId
-      },
-    )
-    .select(`*`)
-    .single();
-    if (error1) {
-      console.error('Failed:', error1);
-      return returnResponse(500, `Failed: ${error1.message}`, null);
-    }
 
-const { data:daveData1, error:error2} = await _supabase
-.from('rUserLeads')
-.update(
-  {
-    "inventory_id":invertoryId
-  },
-)
-.eq('lead_id', leadId)
-.select(`*`)
-.single();
 
 console.error('Fetched lead data >>00:', leadDetail); 
 
@@ -109,7 +83,34 @@ try{
     return returnResponse(500, `Failed: ${error3.message}`, null);
   }
 
- 
+
+
+   // Inset in invertory table
+   const { data:daveData, error:error1 } = await _supabase
+   .from('rUserInventories')
+   .insert(
+     {
+       "user_id": userInfo['id'],
+       "lead_id": leadId,
+       "inventory_id":invertoryId
+     },
+   )
+   .select(`*`)
+   .single();
+   if (error1) {
+     console.error('Failed:', error1);
+     return returnResponse(500, `Failed: ${error1.message}`, null);
+   }  
+const { data:daveData1, error:error2} = await _supabase
+.from('rUserLeads')
+.update(
+  {
+    "inventory_id":invertoryId
+  },
+)
+.eq('lead_id', leadId)
+.select(`*`)
+.single();
 
   const { data: inventoryDetail, error: errorInventory }  = await asyncgetInventoryDetails(daveData2["inventory_id"]);
   if (errorInventory) {
@@ -393,6 +394,7 @@ const { data: data1, error: error1 } = await _supabase
   .eq('is_deleted', false)
   .eq('user_id', userInfo.id)
   .eq('inventories.is_deleted', false) // Filter on contact's 'is_deleted' (if needed)
+ 
   .order('id', { ascending: false });
 
 if (error1) {
@@ -466,6 +468,7 @@ async function asyncgetLeadDetails(leadId) {
   media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
 `)
   .eq('is_deleted', false)
+  .eq('media_files.is_deleted', false)
   .eq('id', leadId).single();
 }
 
@@ -478,6 +481,7 @@ async function asyncgetInventoryDetails(inventoryId) {
   propertyType(${['title','property_type'].join(', ')}),
   media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
 `).eq('is_deleted', false)
+.eq('media_files.is_deleted', false)
   .eq('inventory_id', inventoryId).single();
 }
 

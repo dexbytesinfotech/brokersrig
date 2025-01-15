@@ -3,15 +3,45 @@ import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
 import { returnResponse } from "../response_formatter_js/index.js";// Assuming this module exports `returnResponse`
 import { validateHeaders, getApiRequest,getMinMaxPriceFromBudgetCode,getPriceFromString,generateUniqueIntId,validateRequredReqFields,getFilteredReqData} from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
 import {verifyJWT } from "../jwt_auth/index.js";
+import {addMediaFileInfo,deleteMediaFileInfo } from "../mobile_app_config/index.js";
 
 // Environment variables
 const _supabaseUrl = Deno.env.get('BASE_SUPABASE_URL');
 const _supabaseAnonKey = Deno.env.get('BASE_SUPABASE_ANON_KEY');
 const _supabase = createClient(_supabaseUrl, _supabaseAnonKey);
 
+
+const projectReturnColumn = ["title",
+"remark",
+"created_at",
+"project_id",
+"developer_id",
+"project_type",
+"rera_approval",
+"brokerage_type",
+"nearby_project",
+"project_status",
+"initial_payment",
+"payments_term_remark",
+"development_permission",
+"construction_permission"].join(', ');
+
 const invertoryReturnColumn = ["created_at","preferred_location","min_budget","purpose","additional_details","lead_type","property_size","assigne_id","max_budget",
 "city","lat","lng","full_adress","amount_symbol_id","country_code","is_deleted","is_verified","asking_price","sell_type","inventory_id","lead_id","budget_label"].join(', ');
 const returnContactColumn = ['phone','first_name','last_name','contact_id','county_code'].join(', ');
+const returnadditionalDetailColumn  = ['remark','gar_facing_charge','east_facing_change','electricity_charge'].join(', ');
+const returnaAddressColumn  = [ "lat",
+"city",
+"long",
+"country",
+"landmark",
+"area_code",
+"is_active",
+"created_at",
+"is_deleted",
+"project_full_address"].join(', ');
+
+
 
 export async function addProject(req,userInfo){
   try
@@ -94,6 +124,60 @@ console.log(' User information ######################', userInfo);
   }
 }
 
+/// Get  Lead type
+export async function getAllProjects(req,userInfo) {
+  try {
+           const apiMethod = "GET";
+            // Validate headers and method
+            const errors = validateHeaders(apiMethod,req.headers);
+            if (errors.length > 0) {
+              return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
+            }
+
+// `inventories(${invertoryReturnColumn},contacts(${returnContactColumn}),
+//   propertyType(${['title','property_type'].join(', ')}))
+// `
+const { data: data1, error: error1 } = await _supabase
+.from('rUserProjects')
+  .select(`projects(${projectReturnColumn},inventories(${invertoryReturnColumn}),
+    project_additional_details(${returnadditionalDetailColumn}),
+    project_address(${returnaAddressColumn}),
+    media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')}))`)
+  .eq('is_deleted', false)
+  .eq('user_id', userInfo.id)
+  .eq('projects.is_deleted', false) // Filter on contact's 'is_deleted' (if needed)
+  .eq('projects.is_published', true) 
+  .order('id', { ascending: false });
+
+if (error1) {
+  console.error('Error fetching joined data:', error1);
+} else {
+  console.log('Joined data:', data1);
+}
+
+// // Single row returned
+// const leads = leadsData;
+console.log('lead found:', data1);
+
+if(data1!=null && data1.length>0){
+  const projectsList = data1.map((item) => item.projects).filter((project) => project != null);
+  if(projectsList!=null && projectsList.length>0){
+  return returnResponse(200, 'Success', projectsList);
+  }
+  return returnResponse(400, 'No data found', []);
+}
+else
+{
+  return returnResponse(400, 'No data found', []);
+}
+
+}
+catch (err) 
+{
+            console.error('Server error: new', err);
+            return returnResponse(500,`User not exist`,null);
+ }
+}
 
 export async function addListing(req,userInfo){
   try
@@ -123,20 +207,6 @@ console.log(' User information ######################', userInfo);
       projectReqData["max_budget"] = 0;
       projectReqData["asking_price"] = budgetValues[0];
        }
-    // if(reqData["lead_type"]=="sell_lead"){
-    //   if('sell_type' in reqData){    
-    //     projectReqData["sell_type"] = reqData["sell_type"];
-    //     }
-    //   if('asking_price' in projectReqData){
-    //     const budgetValues = getPriceFromString(projectReqData["asking_price"]);
-    //     projectReqData["min_budget"] = 0;
-    //     projectReqData["max_budget"] = 0;
-    //     projectReqData["asking_price"] = budgetValues[0];
-    //      }
-    // }
-
-
-
     console.log(' projectReqData information ###################### projectReqData', projectReqData);
     //  return returnResponse(200, `Project details ${projectId}`,projectReqData);
       const { data, error } = await _supabase
@@ -192,6 +262,161 @@ console.log(' User information ######################', userInfo);
     console.error('Server error: new', err);
     return returnResponse(500,`Server side error ${err}`,null);
   }
+}
+
+export async function addPaymentTerms(req,userInfo){
+  try
+  {
+                /// Get data from API
+const reqData = await getApiRequest(req,"POST");
+
+console.log(' User information ######################', userInfo);
+
+  const missingKeys = validateRequredReqFields(reqData,['initial_payment','development_permission','rera_approval','construction_permission','project_id']);
+  if (missingKeys['missingKeys'].length > 0) {
+    console.error('Please enter mandatory fields data', "error");
+    return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+  }
+
+ const projectReqData = getFilteredReqData(reqData,['project_id','payments_term_remark','initial_payment','development_permission','rera_approval','construction_permission']);
+ const projectId = projectReqData['project_id'];
+    console.log(' projectReqData information ###################### projectReqData', projectReqData);
+    //  return returnResponse(200, `Project details ${projectId}`,projectReqData);
+      const { data, error } = await _supabase
+      .from('projects')
+      .update(
+        projectReqData,
+      ).
+      eq("project_id",projectReqData['project_id'])
+      .select(`*`)
+      .single();
+      if (error) {
+        console.error('Failed:', error);
+        return returnResponse(500, `Add Listing Failed: ${error.message}`, null);
+      }
+    console.log(' User information ###################### leadDetails >> ', data);
+    // Add lead in user lead refrence table
+    if(!(data===null)){
+      console.log(' User information ***************** projectDetails > leadId > ', data);
+    const { data: projectDetails, error: error1 }  = await asyncgetProjectDetails(projectId);
+    if (error1) {
+      console.error('Error fetching joined data:', error1);
+      return returnResponse(500, `Failed: ${error.message}`, null);
+    } 
+    
+    if(projectDetails!=null){
+      return returnResponse(200, 'Success', projectDetails);
+    }
+    else
+    {
+      return returnResponse(400, 'No data found', {});
+    }
+    }
+    return returnResponse(400, 'No data found', {});
+    
+  }
+  catch (err) {
+    console.error('Server error: new', err);
+    return returnResponse(500,`Server side error ${err}`,null);
+  }
+}
+
+export async function addProjectAdditionalDetails(req,userInfo){
+  try
+  {
+                /// Get data from API
+const reqData = await getApiRequest(req,"POST");
+
+console.log(' User information ######################', userInfo);
+
+  const missingKeys = validateRequredReqFields(reqData,['gar_facing_charge','east_facing_change','electricity_charge','project_id']);
+  if (missingKeys['missingKeys'].length > 0) {
+    console.error('Please enter mandatory fields data', "error");
+    return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+  }
+
+ const projectReqData = getFilteredReqData(reqData,['project_id','remark','gar_facing_charge','east_facing_change','electricity_charge']);
+ const projectId = projectReqData['project_id'];
+    console.log(' projectReqData information ###################### projectReqData', projectReqData);
+    //  return returnResponse(200, `Project details ${projectId}`,projectReqData);
+      const { data, error } = await _supabase
+      .from('project_additional_details')
+      .insert(
+        projectReqData,
+      )
+      .select(`*`)
+      .single();
+      if (error) {
+        console.error('Failed:', error);
+        return returnResponse(500, `Add Listing Failed: ${error.message}`, null);
+      }
+    console.log(' User information ###################### leadDetails >> ', data);
+    // Add lead in user lead refrence table
+    if(!(data===null)){
+    console.log(' User information ***************** projectDetails > leadId > ', data);
+    const { data: projectDetails, error: error1 }  = await asyncgetProjectDetails(projectId);
+    if (error1) {
+      console.error('Error fetching joined data:', error1);
+      return returnResponse(500, `Failed: ${error.message}`, null);
+    } 
+    
+    if(projectDetails!=null){
+      return returnResponse(200, 'Success', projectDetails);
+    }
+    else
+    {
+      return returnResponse(400, 'No data found', {});
+    }
+    }
+    return returnResponse(400, 'No data found', {});
+    
+  }
+  catch (err) {
+    console.error('Server error: new', err);
+    return returnResponse(500,`Server side error ${err}`,null);
+  }
+}
+
+/// Update media file
+export async function addProjectMediaFile(req,{userInfo}) {
+  try {    
+const apiMethod = "POST";
+const reqData = await getApiRequest(req,apiMethod);
+console.log('No leads found >>> ',reqData);
+const missingKeys = validateRequredReqFields(reqData,['files_url','p_id','category']);
+  if (missingKeys['missingKeys'].length > 0) {
+    console.error('Please enter mandatory fields data', "error");
+    return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+  }
+const projectMediaReqData = getFilteredReqData(reqData,['files_url','p_id','category']);
+return await addMediaFileInfo(projectMediaReqData,"project");
+}
+catch (err) 
+{
+ console.error('Server error: new', err);
+ return returnResponse(500,`User not exist`,null);
+ }
+}
+
+
+export async function deleteProjectMediaFile(req,{userInfo}) {
+  try {    
+const apiMethod = "DELETE";
+const reqData = await getApiRequest(req,apiMethod);
+console.log('No leads found >>> ',reqData);
+const missingKeys = validateRequredReqFields(reqData,['file_id','p_id']);
+  if (missingKeys['missingKeys'].length > 0) {
+    console.error('Please enter mandatory fields data', "error");
+    return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+  }
+const projectMediaReqData = getFilteredReqData(reqData,['file_id','p_id']);
+return await deleteMediaFileInfo(projectMediaReqData,"project");
+}
+catch (err) 
+{
+ console.error('Server error: new', err);
+ return returnResponse(500,`User not exist`,null);
+ }
 }
 
 
@@ -372,182 +597,8 @@ else
   }
 }
 
-
-
-async function updateLead(req,userInfo) {
-
-  try {
-    const apiMethod = "POST";
-     // Validate headers and method
-     const errors = validateHeaders(apiMethod,req.headers);
-     if (errors.length > 0) {
-       return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
-     }
-
-     /// Get data from API
-const reqData = await getApiRequest(req,apiMethod);
-
-if (reqData["lead_id"]<= 0) {
-return returnResponse(400,JSON.stringify({ error: "Unathoried user"}),null);
-}
-
-// Check if the email exists in the `users` table
-const { data, error } = await _supabase
-.from('rUserLeads')
-.select('*')
-.eq('user_id',userInfo['id'])
-.eq('lead_id',reqData['lead_id'])
-.eq('is_deleted',false)
-.maybeSingle();
-if (error) {
-  console.error('Error checking leads:', error);
-  return returnResponse(500, `Error checking email: ${error.message}`, null);
-}
-
-console.log(' User information ######################  data', data);
-
-if (data===null) {
-  console.error('Lead not found:', error);
-  return returnResponse(500, `Lead not found.`, null);
-}
-console.log(' User information ######################', userInfo);
-
-const userData = {};
-
-if('lead_id' in reqData &&  ('budget_code' in reqData || 'asking_price' in reqData)) {
-
-// userData['user_id'] = userInfo['id'];
-if('property_type' in reqData){
-userData["property_type"] = reqData["property_type"];
-}
-if('lead_type' in reqData){
-userData["lead_type"] = reqData["lead_type"];
-}
-
-if('contact_id' in reqData){
-userData["contact_id"] = reqData["contact_id"];
-}
-
-if('city' in reqData){
-userData["city"] = reqData["city"];
-}
-
-
-if('additional_details' in reqData){
-userData["additional_details"] = reqData["additional_details"];
-}
-
-if('property_size' in reqData){
-userData["property_size"] = reqData["property_size"];
-}
-
-
-if(reqData["lead_type"]=="sell_lead"){
-  if('sell_type' in reqData){    
-    userData["sell_type"] = reqData["sell_type"];
-    }
-  if('asking_price' in reqData){
-    const budgetValues = getPriceFromString(reqData["asking_price"]);
-       userData["min_budget"] = 0;
-       userData["max_budget"] = 0;
-       userData["asking_price"] = budgetValues[0];
-     }
-}
-else{
-  if('budget_code' in reqData){
-    const budgetValues = getMinMaxPriceFromBudgetCode(reqData["budget_code"]);
-       userData["min_budget"] = budgetValues[0];
-       userData["max_budget"] = budgetValues[1];
-     }
-}
-
-if('lat' in reqData){
-userData["lat"] = reqData["lat"];
-}
-
-if('lng' in reqData){
-userData["lng"] = reqData["lng"];
-}
-
-if('preferred_location' in reqData){
-  userData["preferred_location"] = reqData["preferred_location"];
-  }
-
-if('full_adress' in reqData){
-userData["full_adress"] = reqData["full_adress"];
-}
-
-if('amount_symbol_id' in reqData){
-userData["amount_symbol_id"] = reqData["amount_symbol_id"];
-}
-
-if('country_code' in reqData){
-userData["country_code"] = reqData["country_code"];
-}
-
-}
-console.log(' User information ###################### userData', userData);
-// Check if the email exists in the `users` table
-if(!(JSON.stringify(userData) === '{}')){
-const { data, error } = await _supabase
-.from('leads')
-.update(
-userData,
-)
-.eq('id', reqData['lead_id'])
-.select(`id`)
-.single();
-if (error) {
-console.error('Failed:', error);
-return returnResponse(500, `Failed: ${error.message}`, null);
-}
-var leadDetails = data;
-console.log(' User information ###################### leadDetails', leadDetails);
-// Add lead in user lead refrence table
-// if(!(leadDetails===null)){
-// const { data, error } = await _supabase
-// .from('rUserLeads')
-// .insert([
-// {
-// "user_id": userInfo['id'],
-// "lead_id": leadDetails['id']
-// },
-// ])
-// .select(`id`)
-// .single();
-
-// if (error) {
-// console.error('Failed:', error);
-// return returnResponse(500, `Failed: ${error.message}`, null);
-// }
-// }
-
-
-const { data: leadDetail, error: error1 }  = await asyncgetLeadDetails(reqData['lead_id']);
-if (error1) {
-  console.error('Error fetching joined data:', error1);
-  return returnResponse(500, `Failed: ${error.message}`, null);
-} 
-if(leadDetail!=null && leadDetail.length>0){
-  return returnResponse(200, 'Success', leadDetail);
-}
-else
-{
-  return returnResponse(400, 'No data found', []);
-}
-}
-else {
-console.error('Please enter mandatory fields data', "error");
-return returnResponse(500, `Please enter mandatory fields data`, null);
-}
-}catch (err) {
-     console.error('Server error: new', err);
-     return returnResponse(500,`User not exist`,null);
-   }
-}
-
 /// Get  Lead type
-export async function getProjectInventories(req,userInfo) {
+export async function getProjectListing(req,userInfo) {
   try {
            const apiMethod = "GET";
             // Validate headers and method
@@ -560,13 +611,6 @@ export async function getProjectInventories(req,userInfo) {
 //   propertyType(${['title','property_type'].join(', ')}))
 // `
 const { data: data1, error: error1 } = await _supabase
-//   .from('rUserInventories')
-//   .select(`
-//   ${invertoryReturnColumn},
-//   contacts(${returnContactColumn}),
-//   propertyType(${['title','property_type'].join(', ')}),
-//   media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
-// `)
 .from('rUserInventories')
   .select(`inventories(${invertoryReturnColumn},contacts(${returnContactColumn}),
   propertyType(${['title','property_type'].join(', ')}),media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')}))
@@ -603,7 +647,6 @@ catch (err)
  }
 }
 
-
 /// Get  Lead details
 export async function getInventoryDetail(req,userInfo) {
   try {
@@ -639,15 +682,51 @@ catch (err)
  }
 }
 
+export async function getProjectDetail(req) {
+  try {
+            const apiMethod = "GET";
+            const reqData = await getApiRequest(req,apiMethod);
+            console.log('Requested get project datail :', reqData);
+            const missingKeys = validateRequredReqFields(reqData,['project_id']);
+            if (missingKeys['missingKeys'].length > 0) {
+              console.error('Please enter mandatory fields data', "error");
+              return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+            }
+     
+ const { data: leadDetail, error: error1 }  = await asyncgetProjectDetails(reqData.get("project_id"));
+if (error1) {
+              console.error('Error fetching joined data:', error1);
+              return returnResponse(500, `Not found`, null);
+            } 
 
+if(leadDetail!=null){
+  return returnResponse(200, 'Success', leadDetail);
+}
+else
+{
+  return returnResponse(400, 'No data found', {});
+}
+
+}
+catch (err) 
+{
+            console.error('Server error: new', err);
+            return returnResponse(500,`Not found`,null);
+ }
+}
+//
 async function asyncgetProjectDetails(projectId) {
   return await _supabase
   .from('projects')
-  .select(`*`)
-  .eq('is_deleted', false)
+  .select(`
+  ${projectReturnColumn},inventories(${invertoryReturnColumn}),
+  project_additional_details(${returnadditionalDetailColumn}),
+  project_address(${returnaAddressColumn}),
+  media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
+`).eq('is_deleted', false)
+  .eq('media_files.is_deleted', false)
   .eq('project_id', projectId).single();
 }
-
 
 async function asyncgetLeadDetails(projectId) {
   return await _supabase
@@ -666,9 +745,9 @@ async function asyncgetInventoryDetails(inventoryId) {
   propertyType(${['title','property_type'].join(', ')}),
   media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
 `).eq('is_deleted', false)
+.eq('media_files.is_deleted', false)
   .eq('inventory_id', inventoryId).single();
 }
-
 
 async function copyMediaData(mediaDataList,invertoryId){
   try{
@@ -711,28 +790,4 @@ const { data, error } = await _supabase
    catch (err) {
      return "";
    }
-}
-
-async function getLastCreatedId(tableName){
-  var lastCreatedId = 1;
-  try{
-    const { data, error } = await _supabase
-  .from(tableName)
-  .select('id')
-  .order('id', { ascending: false })
-  .limit(1);
-
-if (error) {
-  console.error('Error fetching last ID:', error);
-} else if (data && data.length > 0) {
-  lastCreatedId = (data[0].id)+1;
-  console.log('Last created ID:', lastCreatedId);
-} else {
-  console.log('No records found in the table.');
-}
-  }
-  catch(error){
-
-  }
-return lastCreatedId;
 }
