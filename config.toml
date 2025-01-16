@@ -305,3 +305,7 @@ entrypoint = './functions/jwt_auth_new/index.js'
 [functions.developers]
 # other entries
 entrypoint = './functions/developers/index.js'
+
+[functions.leads]
+# other entries
+entrypoint = './functions/leads/index.js'

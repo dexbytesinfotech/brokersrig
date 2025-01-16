@@ -41,7 +41,7 @@ const returnaAddressColumn  = [ "lat",
 "is_deleted",
 "project_full_address"].join(', ');
 
-
+const invertoryOfProjectReturnColumn = ["created_at","min_budget","lead_type","property_size","asking_price","project_id","budget_label","number_of_unit","remark"].join(', ');
 
 export async function addProject(req,userInfo){
   try
@@ -139,7 +139,7 @@ export async function getAllProjects(req,userInfo) {
 // `
 const { data: data1, error: error1 } = await _supabase
 .from('rUserProjects')
-  .select(`projects(${projectReturnColumn},inventories(${invertoryReturnColumn}),
+  .select(`projects(${projectReturnColumn},inventories(${invertoryOfProjectReturnColumn}),
     project_additional_details(${returnadditionalDetailColumn}),
     project_address(${returnaAddressColumn}),
     media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')}))`)
@@ -600,23 +600,26 @@ else
 /// Get  Lead type
 export async function getProjectListing(req,userInfo) {
   try {
-           const apiMethod = "GET";
-            // Validate headers and method
-            const errors = validateHeaders(apiMethod,req.headers);
-            if (errors.length > 0) {
-              return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
+       
+           const reqData = await getApiRequest(req,"GET");
+            const missingKeys = validateRequredReqFields(reqData,['project_id']);
+            if (missingKeys['missingKeys'].length > 0) {
+              console.error('Please enter mandatory fields data', "error");
+              return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
             }
-
-//             `inventories(${invertoryReturnColumn},contacts(${returnContactColumn}),
-//   propertyType(${['title','property_type'].join(', ')}))
-// `
+          
+           const projectReqData = getFilteredReqData(reqData,['project_id']);
+          
+           const projectId = projectReqData['project_id'];
+                       
 const { data: data1, error: error1 } = await _supabase
 .from('rUserInventories')
-  .select(`inventories(${invertoryReturnColumn},contacts(${returnContactColumn}),
+  .select(`inventories(${invertoryOfProjectReturnColumn},
   propertyType(${['title','property_type'].join(', ')}),media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')}))
 `)
   .eq('is_deleted', false)
   .eq('user_id', userInfo.id)
+  .eq('project_id', projectId)
   .eq('inventories.is_deleted', false) // Filter on contact's 'is_deleted' (if needed)
   .order('id', { ascending: false });
 
@@ -719,7 +722,7 @@ async function asyncgetProjectDetails(projectId) {
   return await _supabase
   .from('projects')
   .select(`
-  ${projectReturnColumn},inventories(${invertoryReturnColumn}),
+  ${projectReturnColumn},inventories(${invertoryOfProjectReturnColumn}),
   project_additional_details(${returnadditionalDetailColumn}),
   project_address(${returnaAddressColumn}),
   media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})

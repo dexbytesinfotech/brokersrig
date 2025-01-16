@@ -1,7 +1,5 @@
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
 import { returnResponse } from "../response_formatter_js/index.js";// Assuming this module exports `returnResponse`
-import {verifyJWT } from "../jwt_auth/index.js";
 import { validateHeaders, getHeaderAuthorization,validateEndPoint,getApiRequest,getMinMaxPriceFromBudgetCode,getPriceFromString,generateUniqueIntId,validateRequredReqFields,getFilteredReqData,formatNumber} from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
 
 // Environment variables
@@ -13,63 +11,7 @@ const _supabase = createClient(_supabaseUrl, _supabaseAnonKey);
 const leadReturnColumn = ["id","created_at","preferred_location","min_budget","purpose","additional_details","lead_type","property_size","assigne_id","max_budget",
 "city","lat","lng","full_adress","amount_symbol_id","country_code","is_deleted","is_verified","asking_price","sell_type","budget_label"].join(', ');
 const returnContactColumn = ['phone','first_name','last_name','contact_id','county_code'].join(', ');
-
-serve(async (req) => {
-  try {
-         const url = new URL(req.url);
-         console.log("called API >>>> :", url);
-
-            // Validate headers and method
-  const validateError = validateEndPoint(req,['/lead/get_lead_type','/lead/add_lead','/lead/update_lead','/lead/delete_lead','/lead/get_leads','/lead/lead_details','/lead/get_contacts_leads']);
-
-  if (validateError===null) {
-    return returnResponse(400,JSON.stringify({ error: "Validation failed", details: validateError }),null);
-  }
-  
-  const authToken = getHeaderAuthorization(req.headers);
-
-  const userInfo = await verifyJWT(authToken);
-  if (userInfo===null) {
-    return returnResponse(400,JSON.stringify({ error: "Unexpected token"}),null);
-  }
-
-  /// add leads
-  if(validateError==="/lead/get_lead_type"){
-    return await getLeadType(req,userInfo);
-   }
-   else if(validateError==="/lead/get_leads"){
-    return await getLeads(req,userInfo);
-   }
-
-   else if(validateError==="/lead/get_contacts_leads"){
-    return await getContactLeads(req,userInfo);
-   }
-
-  else if(validateError==="/lead/add_lead"){
-   return await addLead(req,userInfo);
-  }
-  else if(validateError==="/lead/update_lead"){
-    return await updateLead(req,userInfo);
-   }
-   else if(validateError==="/lead/delete_lead"){
-    return await deleteLead(req,userInfo);
-   }
-
-   else if(validateError==="/lead/lead_details"){
-    return await getLeadDetails(req,userInfo);
-   }
-
-   
-
-  return returnResponse(400,JSON.stringify({ error: "Validation failed", details: validateError }),null);
-
-  } 
-  catch (err) {
-    console.error('Server error: new', err);
-    return returnResponse(500,`User not exist`,null);
-  }
-});
-
+const returnFollowUpColumn = ['assigned_id','follow_up_id','lead_status','lead_status_option','follow_up_remark','data_time','follow_up_category'].join(', ');
 
 // Add lead
 async function addLead(req,userInfo) {
@@ -85,14 +27,10 @@ async function addLead(req,userInfo) {
 const reqData = await getApiRequest(req,apiMethod);
 
  console.log(' User information ######################', userInfo);
- const missingKeys = validateRequredReqFields(reqData,['property_type','lead_type','contact_id','city']);
- if (missingKeys['missingKeys'].length > 0) {
-   console.error('Please enter mandatory fields data', "error");
-   return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
- }
+
 const userData = {};
 
-if(('budget_code' in reqData || 'asking_price' in reqData)) {
+if('property_type' in reqData && 'lead_type' in reqData && 'contact_id' in reqData && 'city' in reqData &&  ('budget_code' in reqData || 'asking_price' in reqData)) {
 
   userData["property_type"] = reqData["property_type"];
   userData["lead_type"] = reqData["lead_type"];
@@ -179,7 +117,9 @@ if(!(JSON.stringify(userData) === '{}')){
     return returnResponse(500, `Failed: ${error.message}`, null);
   }
 const leadDetails = data;
+console.log(' User information ###################### leadDetails >> ', leadDetails);
 const leadId = leadDetails['id'];
+console.log(' User information ***************** leadDetails > leadId 0 > ', leadDetails['id']);
 console.log(' User information ***************** leadDetails > leadId 1 > ', leadId);
 // Add lead in user lead refrence table
 if(!(leadDetails===null)){
@@ -193,21 +133,6 @@ if(!(leadDetails===null)){
   ])
   .select(`lead_id`)
   .single();
-
-  const { data:assignedData, error:assignedError } = await _supabase
-  .from('lead_assigne')
-  .insert([
-    {
-      "assigned_id": userInfo['id'],
-      "assigned_by_id": userInfo['id'],
-      "lead_id": leadId
-    },
-  ])
-  .select(`lead_id`)
-  .single();
-  if (assignedError) {
-    console.error('Failed: to set assigned id ', assignedError);
-  }
   if (error) {
     console.error('Failed:', error);
     return returnResponse(500, `Failed: ${error.message}`, null);
@@ -689,14 +614,10 @@ async function asyncgetLeadDetails(leadId) {
   .select(`${leadReturnColumn},
   contacts(${returnContactColumn}),
   propertyType(${['title','property_type'].join(', ')}),
-  lead_assigne(usersProfile(${['user_id','first_name'].join(', ')})),
   media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
 `)
   .eq('is_deleted', false)
   .eq('media_files.is_deleted', false)
-  .eq('lead_assigne.is_deleted', false)
-  .eq('lead_assigne.is_active', true)
-
   .eq('id', leadId).single();
 }
 
@@ -717,4 +638,197 @@ if(data!=null){
   return data["title"];
 }
 return "";
+}
+
+
+export async function addLeadFollowUp(req,userInfo){
+  try
+  {
+/// Get data from API
+const reqData = await getApiRequest(req,"POST");
+console.log(' User information ######################', userInfo);
+
+  const missingKeys = validateRequredReqFields(reqData,['lead_id','lead_status','lead_status_option','follow_up_remark','data_time','follow_up_category']);
+  if (missingKeys['missingKeys'].length > 0) {
+    console.error('Please enter mandatory fields data', "error");
+    return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+  }
+
+      const localReqData = getFilteredReqData(reqData,['lead_id','lead_status','lead_status_option','follow_up_remark','data_time','follow_up_category']);
+     console.log(' Add Lead followup information ###################### localReqData', localReqData);
+     const followupId = generateUniqueIntId({length : 4 ,sliceLength : 6});
+     localReqData['follow_up_id'] = followupId;
+     localReqData['user_id'] = userInfo['id'];
+
+     var assignId =  userInfo['id'];
+
+     const { data:leadAssigneData, error:leadAssigneError } = await _supabase
+     .from('lead_assigne')
+     .select(`assigned_id`)
+     .eq('lead_id',localReqData['lead_id'])
+     .eq('is_active',true)
+     .single();
+     if (leadAssigneError) {
+       console.error('Failed:', leadAssigneError);
+       return returnResponse(500, `Followup add Failed: ${leadAssigneError.message}`, null);
+     }
+     if(!(leadAssigneData===null)){
+      assignId = leadAssigneData['assigned_id'];
+     }
+     localReqData['assigned_id'] = assignId;
+
+    //  return returnResponse(200, `Project details ${projectId}`,localReqData);
+      const { data, error } = await _supabase
+      .from('follow_up')
+      .insert(
+        localReqData,
+      )
+      .select(`${returnFollowUpColumn},usersProfile(${['user_id','first_name'].join(', ')})`)
+      .single();
+      if (error) {
+        console.error('Failed:', error);
+        return returnResponse(500, `Followup add Failed: ${error.message}`, null);
+      }
+    console.log(' User information ###################### leadDetails >> ', data);
+    // Add lead in user lead refrence table
+    if(!(data===null)){
+      return returnResponse(200, 'Success', data);
+    }
+    return returnResponse(500, `Failed: ${error.message}`, null);    
+  }
+  catch (err) {
+    console.error('Server error: new', err);
+    return returnResponse(500,`Server side error ${err}`,null);
+  }
+}
+
+export async function updateLeadFollowUp(req,userInfo){
+  try
+  {
+/// Get data from API
+const reqData = await getApiRequest(req,"POST");
+console.log(' User information ######################', userInfo);
+
+  const missingKeys = validateRequredReqFields(reqData,['follow_up_id']);
+  if (missingKeys['missingKeys'].length > 0) {
+    console.error('Please enter mandatory fields data', "error");
+    return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+  }
+
+      const localReqData = getFilteredReqData(reqData,['follow_up_id','lead_status','lead_status_option','follow_up_remark','data_time']);
+     const followupId =  localReqData['follow_up_id'];
+     localReqData['follow_up_id'] = followupId;
+     localReqData['user_id'] = userInfo['id'];
+
+     var assignId =  userInfo['id'];
+
+    //  return returnResponse(200, `Project details ${projectId}`,localReqData);
+      const { data, error } = await _supabase
+      .from('follow_up')
+      .update(
+        localReqData,
+      )
+      .eq('follow_up_id',followupId)
+      .eq('user_id',userInfo['id'])
+      .select(`${returnFollowUpColumn},usersProfile(${['user_id','first_name'].join(', ')})`)
+      .single();
+      if (error) {
+        console.error('Failed:', error);
+        return returnResponse(500, `Followup add Failed: ${error.message}`, null);
+      }
+    console.log(' User information ###################### leadDetails >> ', data);
+    // Add lead in user lead refrence table
+    if(!(data===null)){
+      return returnResponse(200, 'Success', data);
+    }
+    return returnResponse(500, `Failed: ${error.message}`, null);    
+  }
+  catch (err) {
+    console.error('Server error: new', err);
+    return returnResponse(500,`Server side error ${err}`,null);
+  }
+}
+
+
+export async function getLeadFollowUpDetail(req,userInfo){
+  try
+  {
+/// Get data from API
+const reqData = await getApiRequest(req,"GET");
+console.log(' User information ######################', userInfo);
+
+  const missingKeys = validateRequredReqFields(reqData,['follow_up_id']);
+  if (missingKeys['missingKeys'].length > 0) {
+    console.error('Please enter mandatory fields data', "error");
+    return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+  }
+
+      const localReqData = getFilteredReqData(reqData,['follow_up_id','lead_status','lead_status_option','follow_up_remark','data_time']);
+     const followupId =  localReqData['follow_up_id'];
+     localReqData['follow_up_id'] = followupId;
+     localReqData['user_id'] = userInfo['id'];
+
+     var assignId =  userInfo['id'];
+
+    //  return returnResponse(200, `Project details ${projectId}`,localReqData);
+      const { data, error } = await _supabase
+      .from('follow_up')
+      .select(`${returnFollowUpColumn},usersProfile(${['user_id','first_name'].join(', ')})`)
+      .eq('follow_up_id',followupId)
+      .eq('user_id',userInfo['id'])
+      .single();
+      if (error) {
+        console.error('Failed:', error);
+        return returnResponse(500, `Followup add Failed: ${error.message}`, null);
+      }
+    console.log(' User information ###################### leadDetails >> ', data);
+    // Add lead in user lead refrence table
+    if(!(data===null)){
+      return returnResponse(200, 'Success', data);
+    }
+    return returnResponse(200, `No data found`, null);    
+  }
+  catch (err) {
+    console.error('Server error: new', err);
+    return returnResponse(500,`Server side error ${err}`,null);
+  }
+}
+
+export async function getLeadFollowUps(req,userInfo){
+  try
+  {
+/// Get data from API
+const reqData = await getApiRequest(req,"GET");
+console.log(' User information ######################', userInfo);
+
+  const missingKeys = validateRequredReqFields(reqData,['lead_id']);
+  if (missingKeys['missingKeys'].length > 0) {
+    console.error('Please enter mandatory fields data', "error");
+    return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+  }
+
+     const localReqData = getFilteredReqData(reqData,['lead_id']);
+     console.log(' Add Lead followup information ###################### localReqData', localReqData);
+    //  return returnResponse(200, `Project details ${projectId}`,localReqData);
+      const { data, error } = await _supabase
+      .from('follow_up')
+      .select(`${returnFollowUpColumn},usersProfile(${['user_id','first_name'].join(', ')})`)
+      .eq('user_id',userInfo['id'])
+      .eq('lead_id',localReqData['lead_id'])
+      .eq('is_deleted',false);
+      if (error) {
+        console.error('Failed:', error);
+        return returnResponse(500, `Followup add Failed: ${error.message}`, null);
+      }
+    console.log(' User information ###################### leadDetails >> ', data);
+    // Add lead in user lead refrence table
+    if(!(data===null) && (data.length>0)){
+      return returnResponse(200, 'Success', data);
+    }
+    return returnResponse(200, `No data found`, null);
+  }
+  catch (err) {
+    console.error('Server error: new', err);
+    return returnResponse(500,`Server side error ${err}`,null);
+  }
 }

@@ -7,6 +7,8 @@ import {pulishInvertory,getInventories,getInventoryDetail} from "../inventory/in
 import {getPriceRange,addMediaFile,deleteMediaFile} from "../mobile_app_config/index.js";
 
 import {getDevelopers,addDeveloper} from "../developers/index.js";
+import {addLeadFollowUp,getLeadFollowUps,getLeadFollowUpDetail,updateLeadFollowUp} from "../leads/index.js";
+
 
 import {addProject,addListing,getAllProjects,getProjectListing,addPaymentTerms,getProjectDetail,addProjectAdditionalDetails,addProjectMediaFile,deleteProjectMediaFile} from "../project/index.js";
 
@@ -231,8 +233,43 @@ serve(async (req) => {
     }
     return await getDevelopers(req);
    }
-   
 
+  
+   else if(validateEndPoint==="/lead/add_follow_up" && validateSingleApiMethods('POST',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await addLeadFollowUp(req,userInfo);
+   }
+
+   else if(validateEndPoint==="/lead/update_follow_up" && validateSingleApiMethods('POST',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await updateLeadFollowUp(req,userInfo);
+   }
+
+   else if(validateEndPoint==="/lead/get_all_follow_up" && validateSingleApiMethods('GET',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await getLeadFollowUps(req,userInfo);
+   }
+
+
+   else if(validateEndPoint==="/lead/get_follow_up_details" && validateSingleApiMethods('GET',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await getLeadFollowUpDetail(req,userInfo);
+   }
+
+   
+   
    
    else if(validateEndPoint==="/mobile_app_config/get_price_range" && validateSingleApiMethods('GET',req.headers).length===0){
     return await getPriceRange(req);
