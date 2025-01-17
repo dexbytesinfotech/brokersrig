@@ -7,7 +7,7 @@ import {pulishInvertory,getInventories,getInventoryDetail} from "../inventory/in
 import {getPriceRange,addMediaFile,deleteMediaFile} from "../mobile_app_config/index.js";
 
 import {getDevelopers,addDeveloper} from "../developers/index.js";
-import {addLeadFollowUp,getLeadFollowUps,getLeadFollowUpDetail,updateLeadFollowUp} from "../leads/index.js";
+import {addLeadFollowUp,getLeadAllFollowUps,getLeadFollowUpDetail,updateLeadFollowUp} from "../leads/index.js";
 
 
 import {addProject,addListing,getAllProjects,getProjectListing,addPaymentTerms,getProjectDetail,addProjectAdditionalDetails,addProjectMediaFile,deleteProjectMediaFile} from "../project/index.js";
@@ -256,7 +256,7 @@ serve(async (req) => {
     if (userInfo===null) {
       return returnResponse(400,"Unexpected token",null);
     }
-    return await getLeadFollowUps(req,userInfo);
+    return await getLeadAllFollowUps(req,userInfo);
    }
 
 

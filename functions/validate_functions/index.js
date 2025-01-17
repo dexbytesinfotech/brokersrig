@@ -246,7 +246,10 @@ export function getPriceFromString(priceStr) {
 
   let maxValue = amount;
 
-  if (unit === 'k') {
+  if(unit === 'sqft' || unit === 'sqyd' || unit === 'sqmt'){
+    maxValue = amount;
+  }
+  else if (unit === 'k') {
     maxValue = amount * 1000; // Thousand 
   }
   else if (unit === 'l') {

@@ -206,6 +206,93 @@ console.log(' User information ######################', userInfo);
       projectReqData["min_budget"] = 0;
       projectReqData["max_budget"] = 0;
       projectReqData["asking_price"] = budgetValues[0];
+      projectReqData["budget_label"] = `${budgetValues[0]} ${budgetValues[1]}` ;
+       }
+    console.log(' projectReqData information ###################### projectReqData', projectReqData);
+    //  return returnResponse(200, `Project details ${projectId}`,projectReqData);
+      const { data, error } = await _supabase
+      .from('inventories')
+      .insert(
+        projectReqData,
+      )
+      .select(`id`)
+      .single();
+      if (error) {
+        console.error('Failed:', error);
+        return returnResponse(500, `Add Listing Failed: ${error.message}`, null);
+      }
+    console.log(' User information ###################### leadDetails >> ', data);
+    // Add lead in user lead refrence table
+    if(!(data===null)){
+        // Inset in invertory table
+        const { data:daveData, error:error1 } = await _supabase
+        .from('rUserInventories')
+        .insert(
+          {
+            "user_id": userInfo['id'],
+            "project_id": projectId,
+            "inventory_id":invertoryId
+          },
+        )
+        .select(`*`)
+        .single();
+      if (error) {
+        console.error('Failed:', error);
+        return returnResponse(500, `Failed: ${error.message}`, null);
+      }
+
+    }
+
+    console.log(' User information ***************** projectDetails > leadId > ', data);
+    const { data: projectDetails, error: error1 }  = await asyncgetProjectDetails(projectId);
+    if (error1) {
+      console.error('Error fetching joined data:', error1);
+      return returnResponse(500, `Failed: ${error.message}`, null);
+    } 
+    
+    if(projectDetails!=null){
+      return returnResponse(200, 'Success', projectDetails);
+    }
+    else
+    {
+      return returnResponse(400, 'No data found', {});
+    }
+    
+  }
+  catch (err) {
+    console.error('Server error: new', err);
+    return returnResponse(500,`Server side error ${err}`,null);
+  }
+}
+
+export async function updateListing(req,userInfo){
+  try
+  {
+                /// Get data from API
+const reqData = await getApiRequest(req,"POST");
+
+console.log(' User information ######################', userInfo);
+
+  const missingKeys = validateRequredReqFields(reqData,['property_type','property_size','asking_price','number_of_unit','project_id']);
+  if (missingKeys['missingKeys'].length > 0) {
+    console.error('Please enter mandatory fields data', "error");
+    return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+  }
+
+ const projectReqData = getFilteredReqData(reqData,['property_type','property_size','asking_price','number_of_unit','remark','project_id']);
+
+ const projectId = projectReqData['project_id'];
+     projectReqData['is_published'] = false;
+    const invertoryId = generateUniqueIntId({length : 4 ,sliceLength : 6});
+    projectReqData['project_id'] = projectId;
+    projectReqData['inventory_id'] = invertoryId;
+
+    if('asking_price' in projectReqData){
+      const budgetValues = getPriceFromString(projectReqData["asking_price"]);
+      projectReqData["min_budget"] = 0;
+      projectReqData["max_budget"] = 0;
+      projectReqData["asking_price"] = budgetValues[0];
+      projectReqData["budget_label"] = `${budgetValues[0]} ${budgetValues[1]}` ;
        }
     console.log(' projectReqData information ###################### projectReqData', projectReqData);
     //  return returnResponse(200, `Project details ${projectId}`,projectReqData);
@@ -722,9 +809,10 @@ async function asyncgetProjectDetails(projectId) {
   return await _supabase
   .from('projects')
   .select(`
-  ${projectReturnColumn},inventories(${invertoryOfProjectReturnColumn}),
+  ${projectReturnColumn},inventories(${invertoryOfProjectReturnColumn},propertyType(${['title','property_type'].join(', ')})),
   project_additional_details(${returnadditionalDetailColumn}),
   project_address(${returnaAddressColumn}),
+  developer(${['developer_name','developer_id'].join(', ')}),
   media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
 `).eq('is_deleted', false)
   .eq('media_files.is_deleted', false)

@@ -309,3 +309,9 @@ entrypoint = './functions/developers/index.js'
 [functions.leads]
 # other entries
 entrypoint = './functions/leads/index.js'
+
+
+[functions.pg_notify_cron_schedule]
+# other entries
+entrypoint = './functions/pg_notify_cron_schedule/index.js'
+
