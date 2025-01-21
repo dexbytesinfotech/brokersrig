@@ -7,8 +7,9 @@ const _supabaseUrl = Deno.env.get('BASE_SUPABASE_URL');
 const _supabaseAnonKey = Deno.env.get('BASE_SUPABASE_ANON_KEY');
 const _supabase = createClient(_supabaseUrl, _supabaseAnonKey);
 
+const rangBudgetPer = 5;
 
-const leadReturnColumn = ["id","created_at","preferred_location","min_budget","purpose","additional_details","lead_type","property_size","assigne_id","max_budget",
+const leadReturnColumn = ["id","property_type","created_at","preferred_location","min_budget","purpose","additional_details","lead_type","property_size","assigne_id","max_budget",
 "city","lat","lng","full_adress","amount_symbol_id","country_code","is_deleted","is_verified","asking_price","sell_type","budget_label"].join(', ');
 const returnContactColumn = ['phone','first_name','last_name','contact_id','county_code'].join(', ');
 const returnFollowUpColumn = ['created_at','assigned_id','follow_up_id','lead_status','lead_status_option','follow_up_remark','follow_up_date_time','follow_up_category'].join(', ');
@@ -519,6 +520,7 @@ catch (err)
 }
 
 
+
 /// Get  Lead type
 async function getContactLeads(req,userInfo) {
   try {
@@ -640,6 +642,139 @@ if(data!=null){
 return "";
 }
 
+export async function getMatchedLeads(req,userInfo) {
+try {
+   /// Get data from API
+const reqData = await getApiRequest(req,"GET");
+const missingKeys = validateRequredReqFields(reqData,['lead_type','property_type']);
+  if (missingKeys['missingKeys'].length > 0) {
+    console.error('Please enter mandatory fields data', "error");
+    return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+  } 
+
+const localReqData = getFilteredReqData(reqData,['lead_type','property_type','search_location','city','min_budget','max_budget','sell_type','asking_price']);
+const allowedLeadType = ['buy','sell','rent','rental','invest'];  
+var searchLeadType = localReqData['lead_type'];
+
+var propertyType = localReqData['property_type'];
+
+if (!allowedLeadType.includes(searchLeadType.toLowerCase())) {
+  return returnResponse(500, `Invalid lead_type valu. Expected ${allowedLeadType}, but received '${allowedLeadType}`, null);
+}
+
+switch (localReqData['lead_type'].toLowerCase()){
+case 'buy': {
+  searchLeadType = "Sell" ;
+}
+break
+case 'sell': {searchLeadType = "Buy";} 
+break
+case 'invest': {searchLeadType = "Sell";} 
+break
+case 'rent': {searchLeadType = "Rental"; }
+break
+case 'rental': {searchLeadType = "Rent" ; }
+break
+}
+
+let query = _supabase
+  .from('rUserLeads')
+  .select(`
+    leads (
+      ${leadReturnColumn},contacts(${returnContactColumn}),
+      propertyType (title, property_type),
+      leadType (title, lead_type)
+    )
+  `)
+  .eq('is_deleted', false)
+  .eq('user_id', userInfo.id)
+  .eq('leads.is_deleted', false)
+  .eq('leads.propertyType.title', propertyType) // Correct field path
+  .eq('leads.leadType.title', searchLeadType) // Correct field path
+  .not('leads.leadType', 'is', null) // Exclude null leadType
+  .not('leads.propertyType', 'is', null) // Exclude null propertyType
+  .order('id', { ascending: false });
+
+// Add the filter only if searchAddress has a value
+if ('search_location' in localReqData) {
+  query = query.ilike('leads.full_adress', `%${localReqData['search_location']}%`);
+                             
+}
+// Add the filter only if city has a value
+if ('city' in localReqData) {
+  query = query.ilike('leads.city', `%${localReqData['city']}%`);
+}
+
+// Add the filter only if city has a value
+if ('sell_type' in localReqData) {
+  // query = query.eq('leads.sell_type', localReqData['sell_type']) // Correct field path
+  // .not('leads.sell_type', 'is', null);
+  query = query.ilike('leads.sell_type', `%${localReqData['sell_type']}%`);
+}
+
+// Add Price query for rental or rent case
+if ('asking_price' in localReqData && (searchLeadType.toLowerCase()==="rental" || searchLeadType.toLowerCase()==="rent")) {
+  //rangBudgetPer
+  let askingPrice = localReqData['asking_price'];
+  const difference = (askingPrice * rangBudgetPer) / 100;
+  let lowerBoundPrice = askingPrice - difference;
+  let upperBoundPrice = askingPrice + difference;;
+  query = query.gte('leads.asking_price', lowerBoundPrice)  // follow_up_date_time >= lowerBound
+  .lte('leads.asking_price', upperBoundPrice);  // follow_up_date_time <= upperBound
+  
+}
+
+else if (searchLeadType.toLowerCase()==="invest" || searchLeadType.toLowerCase()==="sell" || searchLeadType.toLowerCase()==="buy") {
+  
+  let lowerBoundBudget = 0;
+  let upperBoundBudget = 0;
+
+  if('min_budget' in localReqData){
+    lowerBoundBudget = localReqData['min_budget'];
+    const difference = (lowerBoundBudget * rangBudgetPer) / 100;
+    lowerBoundBudget = lowerBoundBudget - difference;
+  } 
+  
+  if('max_budget' in localReqData){
+    upperBoundBudget = localReqData['max_budget'];
+    const difference = (upperBoundBudget * rangBudgetPer) / 100;
+    upperBoundBudget = upperBoundBudget + difference;
+  }
+
+  query = query.gte('leads.min_budget', lowerBoundBudget)  // follow_up_date_time >= lowerBound
+  .lte('leads.max_budget', upperBoundBudget);  // follow_up_date_time <= upperBound
+
+}
+
+
+const { data: data1, error: error1 } = await query;
+
+if (error1) {
+  console.error('Error fetching joined data:', error1);
+} else {
+  console.log('Joined data:', data1);
+}
+
+// // Single row returned
+// const leads = leadsData;
+console.log('propertyType found: >>> ', {"propertyType":propertyType,data:data1});
+
+if(data1!=null && data1.length>0){
+  const leadList = data1.map((item) => item.leads).filter((lead) => lead != null);
+  return returnResponse(200, 'Success',  {"propertyType":propertyType, "searchLeadType":searchLeadType,data:leadList} );
+}
+else
+{
+  return returnResponse(400, 'No data found', []);
+}
+
+}
+catch (err) 
+{
+            console.error('Server error: new', err);
+            return returnResponse(500,`User not exist`,null);
+ }
+}
 
 export async function addLeadFollowUp(req,userInfo){
   try
@@ -753,6 +888,7 @@ export async function updateLeadFollowUp(req,userInfo){
 
 
 export async function getLeadFollowUpDetail(req,userInfo){
+
   try
   {
 /// Get data from API
@@ -823,7 +959,7 @@ const reqData = await getApiRequest(req,"GET");
         .eq('is_deleted', false)
         .eq('lead_id', leadId)
         .filter('follow_up_date_time', 'gte', `${date}T00:00:00.000Z`) // Start of the day
-        .filter('follow_up_date_time', 'lt', `${date}T23:59:59.999Z`);
+        .filter('follow_up_date_time', 'lt', `${date}T23:59:59.999Z`).order('created_at', { ascending: true });
         if (error) {
           console.error('Failed:', error);
           return returnResponse(500, `Followup add Failed: ${error.message}`, null);
@@ -842,11 +978,11 @@ const reqData = await getApiRequest(req,"GET");
         // .eq('follow_up_date_time',date);
   const { data, error } = await _supabase
   .from('follow_up')
-  .select(`${returnFollowUpColumn},usersProfile(${['user_id', 'first_name'].join(', ')})`)
+  .select(`${returnFollowUpColumn},usersProfile(${['user_id', 'first_name'].join(', ')}),contacts(${['first_name','last_name','phone'].join(', ')})`)
   .eq('user_id', userId)
   .eq('is_deleted', false)
   .filter('follow_up_date_time', 'gte', `${date}T00:00:00.000Z`) // Start of the day
-  .filter('follow_up_date_time', 'lt', `${date}T23:59:59.999Z`); // End of the day
+  .filter('follow_up_date_time', 'lt', `${date}T23:59:59.999Z`).order('created_at', { ascending: true }); // End of the day
 
         if (error) {
           console.error('Failed:', error);
@@ -861,10 +997,10 @@ const reqData = await getApiRequest(req,"GET");
       else if(!(leadId===null)){
         const { data, error } = await _supabase
       .from('follow_up')
-      .select(`${returnFollowUpColumn},usersProfile(${['user_id', 'first_name'].join(', ')})`)
+      .select(`${returnFollowUpColumn},usersProfile(${['user_id', 'first_name'].join(', ')}),contacts(${['first_name','last_name','phone'].join(', ')})`)
       .eq('is_deleted', false)
       .eq('user_id', userId)
-      .eq('lead_id', leadId);
+      .eq('lead_id', leadId).order('created_at', { ascending: true });
       if (error) {
         console.error('Failed:', error);
         return returnResponse(500, `Followup add Failed: ${error.message}`, null);
@@ -877,9 +1013,9 @@ const reqData = await getApiRequest(req,"GET");
     else {
       const { data, error } = await _supabase
       .from('follow_up')
-      .select(`${returnFollowUpColumn},usersProfile(${['user_id', 'first_name'].join(', ')})`)
+      .select(`${returnFollowUpColumn},usersProfile(${['user_id', 'first_name'].join(', ')}),contacts(${['first_name','last_name','phone'].join(', ')})`)
       .eq('is_deleted', false)
-      .eq('user_id', userId);
+      .eq('user_id', userId).order('created_at', { ascending: false });
       if (error) {
         console.error('Failed:', error);
         return returnResponse(500, `Followup add Failed: ${error.message}`, null);

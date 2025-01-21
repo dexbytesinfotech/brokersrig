@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
 import { returnResponse } from "../response_formatter_js/index.js";// Assuming this module exports `returnResponse`
-import { validateHeaders, getApiRequest,getMinMaxPriceFromBudgetCode,getPriceFromString,generateUniqueIntId} from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
+import { validateHeaders, getApiRequest,getMinMaxPriceFromBudgetCode,getPriceFromString,generateUniqueIntId,getFilteredReqData,validateRequredReqFields} from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
 import {verifyJWT } from "../jwt_auth/index.js";
 
 // Environment variables
@@ -12,8 +12,8 @@ const _supabase = createClient(_supabaseUrl, _supabaseAnonKey);
 const invertoryReturnColumn = ["created_at","preferred_location","min_budget","purpose","additional_details","lead_type","property_size","assigne_id","max_budget",
 "city","lat","lng","full_adress","amount_symbol_id","country_code","is_deleted","is_verified","asking_price","sell_type","inventory_id","lead_id","budget_label"].join(', ');
 const returnContactColumn = ['phone','first_name','last_name','contact_id','county_code'].join(', ');
-
-
+const returnListingAdditionalDetailColumn = ["listing_id","num_of_bedroom","num_of_balcony","furnished_type","carpet_area",
+"total_num_floors","num_flat_on_floor","sell_type","facing","car_parking","construction_age","amenities","community_hall","plot_area","dimension","open_sides","plot_location","suitable_for"].join(', ');
 export async function pulishInvertory(req,userInfo){
   try
   {
@@ -43,7 +43,6 @@ var invertoryId;
 var updatedMediaFiles;
 if(data==null){
   invertoryId = generateUniqueIntId({length : 4 ,sliceLength : 6});
-  console.log('invertoryId >>>> if :', invertoryId);
 const { data: leadDetail, error: error1 }  = await asyncgetLeadDetails(leadId);
 if (error1) {
               console.error('Error fetching joined data:', error1);
@@ -192,6 +191,88 @@ else
   }
 }
 
+export async function addListingAdditionalDetails(req,userInfo) {
+  try
+  {
+/// Get data from API
+const reqData = await getApiRequest(req,"POST");
+console.log(' User information ######################', userInfo);
+  const missingKeys = validateRequredReqFields(reqData,['listing_id']);
+  if (missingKeys['missingKeys'].length > 0) {
+    console.error('Please enter mandatory fields data', "error");
+    return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+  }
+  const localReqData = getFilteredReqData(reqData,['listing_id','num_of_bedroom','num_of_balcony','project_status','nearby_project','remark']);
+  
+  const { data: existingData, error: fetchError } = await _supabase
+  .from('listing_additional_details')
+  .select(`${returnListingAdditionalDetailColumn}`)
+  .eq('listing_id', localReqData['listing_id']);
+
+if (fetchError || existingData.length === 0) {
+  console.error('Record does not exist or error fetching record:', fetchError);
+ const { data:insertData, error:insertError } = await _supabase
+  .from('listing_additional_details')
+  .insert(localReqData)
+  .select(`${returnListingAdditionalDetailColumn}`)
+  .single()
+  if (insertError || insertData.length === 0) {
+    console.error('Failed:', insertError);
+    return returnResponse(500, `Listing Details add Failed:: ${insertError.message}`, null);
+  }
+  else {
+    return returnResponse(200, `Updated successfully`, insertData);
+  }
+}
+ const { data:updatedData, error: updateError} = await _supabase
+  .from('listing_additional_details')
+  .update(
+    localReqData
+  )
+  .eq(`listing_id`,localReqData['listing_id'])
+  .select(`${returnListingAdditionalDetailColumn}`);
+ if (updateError || updatedData.length === 0) {
+    console.error('Failed:', updateError);
+    return returnResponse(500, `Listing Details add Failed:: ${updateError.message}`, null);
+  }
+  else {
+    console.log(' Listing Details >> ', updatedData);
+    return returnResponse(200, `Updated successfully`, updatedData);
+  }
+
+}
+  catch(error){
+    return returnResponse(500, `Listing Details add Failed: ${error.message}`, null);
+  }
+}
+
+export  async function getListingAdditionalDetails(req,userInfo) {
+  try
+  {
+/// Get data from API
+const reqData = await getApiRequest(req,"GET");
+  const missingKeys = validateRequredReqFields(reqData,['listing_id']);
+  if (missingKeys['missingKeys'].length > 0) {
+    console.error('Please enter mandatory fields data', "error");
+    return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+  }
+  const localReqData = getFilteredReqData(reqData,['listing_id','developer_id','project_type','project_status','nearby_project','remark']);
+  const { data, error } = await _supabase
+  .from('listing_additional_details')
+  .select(`${returnListingAdditionalDetailColumn}`)
+  .eq(`listing_id`,localReqData['listing_id']).single();
+  if (error || data.length === 0) {
+    console.error('Failed:', error);
+    return returnResponse(500, `Data not found`, null);
+  }
+console.log(' Listing Details >> ', data);
+
+  return returnResponse(200, `Success`, data);
+}
+  catch(error){
+    return returnResponse(500, `Listing Details add Failed: ${error.message}`, null);
+  }
+}
 
 
 async function updateLead(req,userInfo) {
@@ -323,25 +404,6 @@ return returnResponse(500, `Failed: ${error.message}`, null);
 }
 var leadDetails = data;
 console.log(' User information ###################### leadDetails', leadDetails);
-// Add lead in user lead refrence table
-// if(!(leadDetails===null)){
-// const { data, error } = await _supabase
-// .from('rUserLeads')
-// .insert([
-// {
-// "user_id": userInfo['id'],
-// "lead_id": leadDetails['id']
-// },
-// ])
-// .select(`id`)
-// .single();
-
-// if (error) {
-// console.error('Failed:', error);
-// return returnResponse(500, `Failed: ${error.message}`, null);
-// }
-// }
-
 
 const { data: leadDetail, error: error1 }  = await asyncgetLeadDetails(reqData['lead_id']);
 if (error1) {
@@ -366,7 +428,6 @@ return returnResponse(500, `Please enter mandatory fields data`, null);
    }
 }
 
-/// Get  Lead type
 export async function getInventories(req,userInfo) {
   try {
            const apiMethod = "GET";
@@ -424,8 +485,6 @@ catch (err)
  }
 }
 
-
-/// Get  Lead details
 export async function getInventoryDetail(req,userInfo) {
   try {
             const apiMethod = "GET";
@@ -484,7 +543,6 @@ async function asyncgetInventoryDetails(inventoryId) {
 .eq('media_files.is_deleted', false)
   .eq('inventory_id', inventoryId).single();
 }
-
 
 async function copyMediaData(mediaDataList,invertoryId){
   try{

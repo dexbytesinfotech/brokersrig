@@ -3,11 +3,11 @@ import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
 import { returnResponse } from "../response_formatter_js/index.js";// Assuming this module exports `returnResponse`
 import { validateHeaders,getApiRequest,validateEndPoint,getMinMaxPriceFromBudgetCode,formatNumber,getPriceFromString } from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
 import {verifyJWT } from "../jwt_auth/index.js";
-import {pulishInvertory,getInventories,getInventoryDetail} from "../inventory/index.js";
+import {pulishInvertory,getInventories,getInventoryDetail,addListingAdditionalDetails,getListingAdditionalDetails} from "../inventory/index.js";
 import {getPriceRange,addMediaFile,deleteMediaFile} from "../mobile_app_config/index.js";
 
 import {getDevelopers,addDeveloper} from "../developers/index.js";
-import {addLeadFollowUp,getLeadAllFollowUps,getLeadFollowUpDetail,updateLeadFollowUp} from "../leads/index.js";
+import {addLeadFollowUp,getLeadAllFollowUps,getLeadFollowUpDetail,updateLeadFollowUp,getMatchedLeads} from "../leads/index.js";
 
 
 import {addProject,addListing,getAllProjects,getProjectListing,addPaymentTerms,getProjectDetail,addProjectAdditionalDetails,addProjectMediaFile,deleteProjectMediaFile} from "../project/index.js";
@@ -44,6 +44,22 @@ serve(async (req) => {
       return returnResponse(400,"Unexpected token",null);
     }
     return await pulishInvertory(req,userInfo);
+   }
+
+   if(validateEndPoint==="/listing/add_additional_detail" && validateSingleApiMethods('POST',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await addListingAdditionalDetails(req,userInfo);
+   }
+   
+   if(validateEndPoint==="/listing/additional_detail" && validateSingleApiMethods('GET',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await getListingAdditionalDetails(req,userInfo);
    }
 
    else if(validateEndPoint==="/inventory/getInventories" && validateSingleApiMethods('GET',req.headers).length===0){
@@ -268,6 +284,14 @@ serve(async (req) => {
     return await getLeadFollowUpDetail(req,userInfo);
    }
 
+   else if(validateEndPoint==="/lead/get_matched_leads" && validateSingleApiMethods('GET',req.headers).length===0){
+    const userInfo = await validateUserAuthorization(req);
+    if (userInfo===null) {
+      return returnResponse(400,"Unexpected token",null);
+    }
+    return await getMatchedLeads(req,userInfo);
+   }
+   
    
    
    

@@ -65,7 +65,6 @@ console.log(' User information ######################', userInfo);
      console.log(' addressData information ###################### addressData', addressData);
  
      addressData['project_id'] = projectId;
-    //  return returnResponse(200, `Project details ${projectId}`,projectReqData);
       const { data, error } = await _supabase
       .from('projects')
       .insert(

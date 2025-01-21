@@ -147,7 +147,9 @@ catch(error){
   }
 
   // Find missing keys
-  const missingKeys = keysToExclude.filter(key => !(key in data));
+  const missingKeys = keysToExclude.filter(
+    key => !(key in data) || data[key] === null || data[key] === undefined || data[key] === ''
+  );
   
   if (missingKeys.length > 0) {
     // Return missing keys if any are found
