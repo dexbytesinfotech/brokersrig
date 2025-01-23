@@ -9,14 +9,14 @@ export function validateHeaders(method,headers) {
   }
   // Check Content-Type header
   const contentType = headers.get("content-type");
-  console.log("userInfo >>************ * * >> 000000$$$ :", contentType);
+  // console.log("userInfo >>************ * * >> 000000$$$ :", contentType);
   if (!contentType || !["application/json", "application/json; charset=utf-8"].includes(contentType)) {
     errors.push("Invalid or missing Content-Type. Expected 'application/json'.");
   }
   // Check Authorization header
   const authorization = headers.get("authorization");
   if (!authorization || !authorization.startsWith("Bearer ")) {
-    console.log("userInfo >>************ * * >> 2222 :", authorization);
+    // console.log("userInfo >>************ * * >> 2222 :", authorization);
     errors.push("Missing or invalid Authorization header. Expected 'Bearer <token>'.");
   }
   // Add additional header validations if necessary
@@ -29,14 +29,14 @@ export function validateMethods(method,headers) {
   const errors = [];
   // Validate HTTP method
   if (!["post", "get","delete"].includes(method.toLowerCase())) {
-    console.log("userInfo >>************ * * >> 0000 :", method);
+    // console.log("userInfo >>************ * * >> 0000 :", method);
     errors.push(`Invalid HTTP method. Expected 'POST' or 'GET', but received '${method}'.`);
   }
 
   // Check Content-Type header
   const contentType = headers.get("content-type");
   if (!contentType || !["application/json", "application/json; charset=utf-8"].includes(contentType)) {
-    console.log("userInfo >>************ * * >> 1111000 :", contentType);
+    // console.log("userInfo >>************ * * >> 1111000 :", contentType);
     errors.push("Invalid or missing Content-Type. Expected 'application/json'.");
   }
 
@@ -61,12 +61,12 @@ export function validateEndPoint(req,endPointNames = []) {
 
     const url = new URL(req.url);
     const pathName = url.pathname;
-    console.log("userInfo >>************ * * pathName >> 1111 :", pathName);
+    // console.log("userInfo >>************ * * pathName >> 1111 :", pathName);
     // Check if the request URL matches any of the endpoint names
     if (endPointNames.some(endpoint => pathName.includes(endpoint))) {
    
       result = pathName;
-      console.log("userInfo >>************ * * pathName >> 2222 :", result);
+      // console.log("userInfo >>************ * * pathName >> 2222 :", result);
       //errors.push(`Invalid endpoint: ${pathName}`);
     }
     // if(!url.includes(endPointNames)){
@@ -104,7 +104,7 @@ case 'post':{
 
 case 'get':{
   const url = new URL(req.url);
-  console.log("called API >>>> :", url);
+  // console.log("called API >>>> :", url);
   reqData = url.searchParams;
   break ;
 }
@@ -131,14 +131,14 @@ export function validateRequredReqFields(data, keysToExclude = []) {
   console.log(' data   > > >  >', data);
  
   if (data instanceof URLSearchParams) {
-    console.log(' data   > > >  > 000 ' , data);
+    // console.log(' data   > > >  > 000 ' , data);
 // Get all values
 const allParams = {};
 try{
   for (const [key, value] of data.entries()) {
     allParams[key] = value;
   }
-  console.log(' data   > > >  > 111 ', allParams);
+  // console.log(' data   > > >  > 111 ', allParams);
     data =  allParams;
 }
 catch(error){
@@ -160,21 +160,21 @@ catch(error){
   const filteredData = Object.fromEntries(
     Object.entries(data).filter(([key]) => !keysToExclude.includes(key))
   );
-  console.log(' data   > >  00 0 >  >', data);
+  // console.log(' data   > >  00 0 >  >', data);
   return { data, missingKeys: [] }; // No missing keys
 }
 
 //, optionalKeysToExclude = []
 export function getFilteredReqData(data, keysToExclude = []) {
   if (data instanceof URLSearchParams) {
-    console.log(' data   > > >  > 000 ' , data);
+    // console.log(' data   > > >  > 000 ' , data);
 // Get all values
 const allParams = {};
 try{
   for (const [key, value] of data.entries()) {
     allParams[key] = value;
   }
-  console.log(' data   > > >  > 111 ', allParams);
+  // console.log(' data   > > >  > 111 ', allParams);
     data =  allParams;
 }
 catch(error){

@@ -7,7 +7,8 @@ const _supabaseUrl = Deno.env.get('BASE_SUPABASE_URL');
 const _supabaseAnonKey = Deno.env.get('BASE_SUPABASE_ANON_KEY');
 const _supabase = createClient(_supabaseUrl, _supabaseAnonKey);
 
-const rangBudgetPer = 5;
+const rangMinBudgetPer = 2;
+const rangMaxBudgetPer = 2;
 
 const leadReturnColumn = ["id","property_type","created_at","preferred_location","min_budget","purpose","additional_details","lead_type","property_size","assigne_id","max_budget",
 "city","lat","lng","full_adress","amount_symbol_id","country_code","is_deleted","is_verified","asking_price","sell_type","budget_label"].join(', ');
@@ -669,21 +670,21 @@ case 'buy': {
 break
 case 'sell': {searchLeadType = "Buy";} 
 break
-case 'invest': {searchLeadType = "Sell";} 
+case 'invest': {searchLeadType = "Buy";} 
 break
 case 'rent': {searchLeadType = "Rental"; }
 break
 case 'rental': {searchLeadType = "Rent" ; }
 break
 }
-
+console.log(`Logged in user :${searchLeadType}`, userInfo.id);
 let query = _supabase
   .from('rUserLeads')
   .select(`
     leads (
       ${leadReturnColumn},contacts(${returnContactColumn}),
-      propertyType (title, property_type),
-      leadType (title, lead_type)
+      propertyType(title, property_type),
+      leadType(title, lead_type)
     )
   `)
   .eq('is_deleted', false)
@@ -713,38 +714,32 @@ if ('sell_type' in localReqData) {
 }
 
 // Add Price query for rental or rent case
-if ('asking_price' in localReqData && (searchLeadType.toLowerCase()==="rental" || searchLeadType.toLowerCase()==="rent")) {
-  //rangBudgetPer
+if ('asking_price' in localReqData) {
+
   let askingPrice = localReqData['asking_price'];
-  const difference = (askingPrice * rangBudgetPer) / 100;
-  let lowerBoundPrice = askingPrice - difference;
-  let upperBoundPrice = askingPrice + difference;;
-  query = query.gte('leads.asking_price', lowerBoundPrice)  // follow_up_date_time >= lowerBound
-  .lte('leads.asking_price', upperBoundPrice);  // follow_up_date_time <= upperBound
-  
-}
 
-else if (searchLeadType.toLowerCase()==="invest" || searchLeadType.toLowerCase()==="sell" || searchLeadType.toLowerCase()==="buy") {
-  
-  let lowerBoundBudget = 0;
-  let upperBoundBudget = 0;
 
-  if('min_budget' in localReqData){
-    lowerBoundBudget = localReqData['min_budget'];
-    const difference = (lowerBoundBudget * rangBudgetPer) / 100;
-    lowerBoundBudget = lowerBoundBudget - difference;
-  } 
-  
-  if('max_budget' in localReqData){
-    upperBoundBudget = localReqData['max_budget'];
-    const difference = (upperBoundBudget * rangBudgetPer) / 100;
-    upperBoundBudget = upperBoundBudget + difference;
+  if(searchLeadType.toLowerCase()==="rental" || searchLeadType.toLowerCase()==="sell"){
+    const difference = (askingPrice * rangMinBudgetPer) / 100;
+    let lowerBoundPrice = askingPrice - difference;
+    let upperBoundPrice = askingPrice + difference;
+    console.log('askingPrice data >>>> min', lowerBoundPrice);
+    console.log('askingPrice data >>>> max', upperBoundPrice);
+    query = query.gte('leads.asking_price', lowerBoundPrice)  // follow_up_date_time >= lowerBound
+    .lte('leads.asking_price', upperBoundPrice);  // follow_up_date_time <= upperBound
   }
-
-  query = query.gte('leads.min_budget', lowerBoundBudget)  // follow_up_date_time >= lowerBound
-  .lte('leads.max_budget', upperBoundBudget);  // follow_up_date_time <= upperBound
-
+  else  if(searchLeadType.toLowerCase()==="rent" || searchLeadType.toLowerCase()==="buy"){
+    const difference = (askingPrice * rangMaxBudgetPer) / 100;
+    let lowerBoundPrice = askingPrice - difference;
+    let upperBoundPrice = askingPrice + difference;
+    console.log('askingPrice data >>>> min', lowerBoundPrice);
+    console.log('askingPrice data >>>> max', upperBoundPrice);
+    query = query.gte('leads.max_budget', lowerBoundPrice)  // follow_up_date_time >= lowerBound
+    .lte('leads.max_budget', upperBoundPrice);  // follow_up_date_time <= upperBound
+  }
 }
+
+
 
 
 const { data: data1, error: error1 } = await query;
