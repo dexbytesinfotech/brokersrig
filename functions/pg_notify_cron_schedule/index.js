@@ -22,19 +22,24 @@ const _OnesignalRestApiKey_ = Deno.env.get('ONESIGNAL_REST_API_KEY');
 
 const returnFollowUpColumn = ['notify_status','created_at','assigned_id','follow_up_id','lead_status','lead_status_option','follow_up_remark','follow_up_date_time','follow_up_category'].join(', ');
 
-// serve(async (req) => {
-//   try {
-//          const url = new URL(req.url);
-//          console.log("Cron job called API >>>> :", url);
-//          return new Response("Listening for cron job notifications!");
-//   } 
-//   catch (err) {
-//     console.error('Cron job called API >>>> : Server error: new', err);
-//     return returnResponse(500,`User not exist`,null);
-//   }
-// });
+serve(async (req) => {
+  try {
+         const url = new URL(req.url);
+        notifyToAllFollowUps().then(response => {
+          return new Response("Listening for cron job notifications!");
+        })
+        .catch(error => {
+          console.error(`Error sending notification error:`, error);
+        });
+        //  return new Response("Listening for cron job notifications!");
+  } 
+  catch (err) {
+    console.error('Cron job called API >>>> : Server error: new', err);
+    return returnResponse(500,`User not exist`,null);
+  }
+});
 
-export async function notifyToAllFollowUps(){
+ async function notifyToAllFollowUps(){
   try
   {
     const notifyBefore = 10;  // in minutes
@@ -64,17 +69,14 @@ if (error) {
     // Add lead in user lead refrence table
     if(!(data===null) && (data.length>0)){
       try{
-
         const ids = data.map(item => item.assigned_id);
-        console.log('Success updatedData ids > > :', ids);
-
+        // console.log('Success updatedData ids > > :', ids);
         const result = await notifyToAllIUsers(data);
-
-        // const { data:updatedData, error } = await _supabase
-        // .from('follow_up')
-        // .update({ notify_status: true })
-        // .in('assigned_id',ids) 
-        console.log('Success updatedData:', result);
+        const { data:updatedData, error } = await _supabase
+        .from('follow_up')
+        .update({ notify_status: true })
+        .in('assigned_id',ids) 
+        // console.log('Success updatedData:', result);
       }
       catch(error)
       {
@@ -84,9 +86,7 @@ if (error) {
       const result = await notifyToAllIUsers({data:data});
       return returnResponse(200, 'Success >', result);
     }
-    console.log('Notification 001 ', "1");
     const result = await notifyToAllIUsers({data:data});
-    console.log('Notification 002 ', "2");
     return returnResponse(200, `No data found`, result);
   }
   catch (err) {
@@ -94,14 +94,43 @@ if (error) {
   }
 }
 
+async function notifyToAllIUsers(records){
+  if(records.length>0){
+      // Iterate through each record
+  for (let record of records) {
+    const userId = record['assigned_id'];
+ const { data, error } = await _supabase
+.from('logged_in_devices')
+.select(`device_fcm_token`)
+.eq('is_deleted', false)
+.eq('user_id', userId)
+if(error===null && !(data===null)){
+  // Generate the list of device_fcm_token and remove null values
+  let subscriptionIdsArray = data
+.filter(item => item.device_fcm_token !== null) // Remove null values
+.map(item => item.device_fcm_token); 
 
-
-async function notifyToAllIUsers(record){
   let notificationMsg = getNotificationMsg(1,record);
-  let subscriptionIdsArray = ['All'];
-// Remove duplicates if necessary
- subscriptionIdsArray = [...new Set(subscriptionIdsArray)];
-        // Create and send OneSignal notification
+  // Remove duplicates if necessary
+   subscriptionIdsArray = [...new Set(subscriptionIdsArray)];
+  // Send notification for each record
+  sendNotification(subscriptionIdsArray, notificationMsg)
+    .then(response => {
+      console.log(`Notification sent successfully for user: ${subscriptionIdsArray}`, response);
+    })
+    .catch(error => {
+      console.error(`Error sending notification for user: ${subscriptionIdsArray}`, error);
+    });   
+}
+  }
+
+  }
+return {"message":"success"};
+}
+
+// Function to send notification using OneSignal
+const sendNotification = async (subscriptionIdsArray, notificationMsg) => {
+          // Create and send OneSignal notification
         // const notification = new OneSignal.Notification();
         // console.log('Notification 004', "4");
         // notification.app_id = _OnesignalAppId_;
@@ -116,34 +145,26 @@ async function notifyToAllIUsers(record){
         // console.log('Notification 007', "7");
         // console.log('Notification 008', onesignalApiRes);
         // return onesignalApiRes;
-
-
-// Function to send notification using OneSignal
-const sendNotification = async (subscriptionIdsArray, notificationMsg) => {
-
   const headers = {
     'Authorization': `Basic ${_OnesignalRestApiKey_}`,
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json; charset=utf-8',
   };
   
   const notificationData = {
     app_id: _OnesignalAppId_,
     contents: { en: `${notificationMsg.contents}` },
     headings: { en: `${notificationMsg.headings}` },
-    data: { en: `${notificationMsg.data}` },
-    // include_player_ids: subscriptionIdsArray, // Use the OneSignal Player ID for the user
-    included_segments: subscriptionIdsArray, // Use the OneSignal Player ID for the user
+    data: notificationMsg.data, // Correct structure; `data` doesn't need the `en` key
+    include_subscription_ids: subscriptionIdsArray // Use `include_player_ids` for targeting specific users
   };
 
   try {
-    const response = await fetch('https://onesignal.com/api/v1/notifications', {
+    const response = await fetch('https://api.onesignal.com/notifications', {
       method: 'POST',
       headers: headers,
       body: JSON.stringify(notificationData),
     });
-
     const data = await response.json();
-    console.log('Notification sent:', data);
     return data;
   } catch (error) {
     console.error('Error sending notification:', error);
@@ -151,15 +172,13 @@ const sendNotification = async (subscriptionIdsArray, notificationMsg) => {
   }
 };
 
-return sendNotification(subscriptionIdsArray, notificationMsg);
-}
-
-
 function getNotificationMsg(notificationType, record) {
+
+  let usersProfile = record['usersProfile'];
   return {
     name: "",
-    contents: `Your Follow up call/meeting with [Client Name] is coming up.`,
+    contents: `Your Follow up call/meeting with ${usersProfile['first_name']} is coming up.`,
     headings: "Follow Up Reminder in 10 Minutes",
-    data: `Intraday call for `,
+    data: {"other_info":`Intraday call for `},
   };
 }

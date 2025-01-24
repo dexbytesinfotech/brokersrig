@@ -338,15 +338,15 @@ function getValidateEndPoint(req) {
   var result = null;
   const url = new URL(req.url);
   const pathName = url.pathname;
-console.log("pathName >>************ * * pathName >> 1111 :", pathName);
+// console.log("pathName >>************ * * pathName >> 1111 :", pathName);
 if (pathName.startsWith("/api/")) {
   const path = pathName.slice(4); // Remove "/api" part
-  console.log("pathName >>************ * * pathName >> 22222 :", path);
+  // console.log("pathName >>************ * * pathName >> 22222 :", path);
   if(path.length>1 && path.startsWith("/")){
     result = path;
   }
 }
-console.log("pathName >>************ * * pathName >> 3333 :", result);
+// console.log("pathName >>************ * * pathName >> 3333 :", result);
 return result;
 }
 

@@ -1,7 +1,7 @@
 import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
 import { returnResponse } from "../response_formatter_js/index.js";// Assuming this module exports `returnResponse`
 import { validateHeaders, getHeaderAuthorization,validateEndPoint,getApiRequest,getMinMaxPriceFromBudgetCode,getPriceFromString,generateUniqueIntId,validateRequredReqFields,getFilteredReqData,formatNumber} from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
-import {notifyToAllFollowUps } from "../pg_notify_cron_schedule/index.js";
+
 // Environment variables
 const _supabaseUrl = Deno.env.get('BASE_SUPABASE_URL');
 const _supabaseAnonKey = Deno.env.get('BASE_SUPABASE_ANON_KEY');
@@ -836,44 +836,44 @@ console.log(' User information ######################', userInfo);
 export async function updateLeadFollowUp(req,userInfo){
   try
   {
-    return await notifyToAllFollowUps();
+    // return await notifyToAllFollowUps();
 /// Get data from API
-// const reqData = await getApiRequest(req,"POST");
-// console.log(' User information ######################', userInfo);
+const reqData = await getApiRequest(req,"POST");
+console.log(' User information ######################', userInfo);
 
-//   const missingKeys = validateRequredReqFields(reqData,['follow_up_id']);
-//   if (missingKeys['missingKeys'].length > 0) {
-//     console.error('Please enter mandatory fields data', "error");
-//     return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
-//   }
+  const missingKeys = validateRequredReqFields(reqData,['follow_up_id']);
+  if (missingKeys['missingKeys'].length > 0) {
+    console.error('Please enter mandatory fields data', "error");
+    return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+  }
 
-//       const localReqData = getFilteredReqData(reqData,['follow_up_id','lead_status','lead_status_option','follow_up_remark','follow_up_date_time']);
-//      const followupId =  localReqData['follow_up_id'];
-//      localReqData['follow_up_id'] = followupId;
-//      localReqData['user_id'] = userInfo['id'];
+      const localReqData = getFilteredReqData(reqData,['follow_up_id','lead_status','lead_status_option','follow_up_remark','follow_up_date_time']);
+     const followupId =  localReqData['follow_up_id'];
+     localReqData['follow_up_id'] = followupId;
+     localReqData['user_id'] = userInfo['id'];
 
-//      var assignId =  userInfo['id'];
+     var assignId =  userInfo['id'];
 
-//     //  return returnResponse(200, `Project details ${projectId}`,localReqData);
-//       const { data, error } = await _supabase
-//       .from('follow_up')
-//       .update(
-//         localReqData,
-//       )
-//       .eq('follow_up_id',followupId)
-//       .eq('user_id',userInfo['id'])
-//       .select(`${returnFollowUpColumn},usersProfile(${['user_id','first_name'].join(', ')})`)
-//       .single();
-//       if (error) {
-//         console.error('Failed:', error);
-//         return returnResponse(500, `Followup add Failed: ${error.message}`, null);
-//       }
-//     console.log(' User information ###################### leadDetails >> ', data);
-//     // Add lead in user lead refrence table
-//     if(!(data===null)){
-//       return returnResponse(200, 'Success', data);
-//     }
-//     return returnResponse(500, `Failed: ${error.message}`, null);    
+    //  return returnResponse(200, `Project details ${projectId}`,localReqData);
+      const { data, error } = await _supabase
+      .from('follow_up')
+      .update(
+        localReqData,
+      )
+      .eq('follow_up_id',followupId)
+      .eq('user_id',userInfo['id'])
+      .select(`${returnFollowUpColumn},usersProfile(${['user_id','first_name'].join(', ')})`)
+      .single();
+      if (error) {
+        console.error('Failed:', error);
+        return returnResponse(500, `Followup add Failed: ${error.message}`, null);
+      }
+    console.log(' User information ###################### leadDetails >> ', data);
+    // Add lead in user lead refrence table
+    if(!(data===null)){
+      return returnResponse(200, 'Success', data);
+    }
+    return returnResponse(500, `Failed: ${error.message}`, null);    
   }
   catch (err) {
     console.error('Server error: new', err);

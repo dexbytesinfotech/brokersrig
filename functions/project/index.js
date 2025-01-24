@@ -159,7 +159,26 @@ if (error1) {
 console.log('lead found:', data1);
 
 if(data1!=null && data1.length>0){
-  const projectsList = data1.map((item) => item.projects).filter((project) => project != null);
+  // const projectsList = data1.map((item) => item.projects).filter((project) => project != null);
+  const projectsList = data1.map((item) => item.projects).filter((project) => project != null).map((project) => {
+    let media_files = {};
+    if(!(project['media_files']===null) && project['media_files'].length>0){
+     let category = 'map';
+     let mapFilesList = project['media_files'].filter(file => file['category'].toLowerCase() === category.toLowerCase());
+     media_files['map'] = mapFilesList;
+     category = 'photo';
+     let photoFilesList = project['media_files'].filter(file => file['category'].toLowerCase() === category.toLowerCase());
+     media_files['photo'] = photoFilesList;
+     category = 'brochure';
+     let brochureFilesList = project['media_files'].filter(file => file['category'].toLowerCase() === category.toLowerCase());
+     media_files['brochure'] = brochureFilesList;
+     console.log(`Media file ${media_files}`);
+    }
+    return {
+        ...project, // Spread the existing project properties
+        media_files
+    };
+});
   if(projectsList!=null && projectsList.length>0){
   return returnResponse(200, 'Success', projectsList);
   }
@@ -805,7 +824,7 @@ catch (err)
 }
 //
 async function asyncgetProjectDetails(projectId) {
-  return await _supabase
+  const { data: leadDetail, error: error1 } = await _supabase
   .from('projects')
   .select(`
   ${projectReturnColumn},inventories(${invertoryOfProjectReturnColumn},propertyType(${['title','property_type'].join(', ')})),
@@ -816,6 +835,32 @@ async function asyncgetProjectDetails(projectId) {
 `).eq('is_deleted', false)
   .eq('media_files.is_deleted', false)
   .eq('project_id', projectId).single();
+
+  try{
+    if(!(leadDetail===null)){
+      let media_files = {};
+      if(!(leadDetail['media_files']===null) && leadDetail['media_files'].length>0){
+       let category = 'map';
+       let mapFilesList = leadDetail['media_files'].filter(file => file['category'].toLowerCase() === category.toLowerCase());
+       media_files['map'] = mapFilesList;
+  
+       category = 'photo';
+       let photoFilesList = leadDetail['media_files'].filter(file => file['category'].toLowerCase() === category.toLowerCase());
+       media_files['photo'] = photoFilesList;
+  
+       category = 'brochure';
+       let brochureFilesList = leadDetail['media_files'].filter(file => file['category'].toLowerCase() === category.toLowerCase());
+       media_files['brochure'] = brochureFilesList;
+       console.log(`Media file ${media_files}`);
+       leadDetail['media_files'] = media_files;
+      }
+    }
+  }
+  catch(error){
+
+  }
+  return { data: leadDetail, error: error1 };
+
 }
 
 async function asyncgetLeadDetails(projectId) {

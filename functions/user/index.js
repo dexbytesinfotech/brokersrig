@@ -45,7 +45,7 @@ if (reqData["lead_id"]<= 0) {
     console.log('Incoming Payload:', reqData);
     
     // Extract phone_number from payload
-    const { email,password} = reqData; // Ensure the payload has a property named phone_number
+    const { email,password,device_fcm_token} = reqData; // Ensure the payload has a property named phone_number
 
     // Add key that not needed in response
     const useBasicInfo = ['id','created_at','email','account_type','account_status','account_status_updated_by','first_name','last_name'].join(', ');
@@ -91,6 +91,23 @@ if (reqData["lead_id"]<= 0) {
       }
       
       userData['auth_token'] = authTotken;
+
+try{
+  /// Store device token
+  const { data, error } = await _supabase
+  .from('logged_in_devices')
+  .insert({
+    "device_fcm_token":device_fcm_token,"user_id":userData.id
+  })
+  .single();
+  if(error){
+    console.error('Failed to login ', error);
+  }
+}
+catch(error){
+  console.error('Failed to login ', err);
+}
+
       delete userData.id;
       console.log('Phone number exists:', userData);
       return returnResponse(200,`Success`,userData);
