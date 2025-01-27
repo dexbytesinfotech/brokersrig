@@ -684,20 +684,36 @@ catch (err)
 }
 
 async function asyncgetLeadDetails(leadId) {
-  return await _supabase
+  const { data: leadDetail, error: error1 } = await _supabase
   .from('leads')
   .select(`${leadReturnColumn},
   contacts(${returnContactColumn}),
   propertyType(${['title','property_type'].join(', ')}),
   lead_assigne(usersProfile(${['user_id','first_name'].join(', ')})),
   media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
+ 
 `)
   .eq('is_deleted', false)
   .eq('media_files.is_deleted', false)
   .eq('lead_assigne.is_deleted', false)
   .eq('lead_assigne.is_active', true)
-
   .eq('id', leadId).single();
+
+  if (error1) {
+    console.error('Error fetching joined data:', error1);
+    return { data: null, error: error1 };
+  }
+
+  let leadDetailDetails = leadDetail;
+
+  // if("inventories" in leadDetailDetails && leadDetailDetails["inventories"]!=null){
+  //   leadDetailDetails["inventories"] = true;
+  // }
+  // else {
+  //   leadDetailDetails["inventories"] = true;
+  // }
+
+  return { data: leadDetailDetails, error: error1 };
 }
 
 async function getBudgetLabel(budgetCode) {

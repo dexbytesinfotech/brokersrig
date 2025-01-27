@@ -14,6 +14,7 @@ const invertoryReturnColumn = ["created_at","preferred_location","min_budget","p
 const returnContactColumn = ['phone','first_name','last_name','contact_id','county_code'].join(', ');
 const returnListingAdditionalDetailColumn = ["listing_id","num_of_bedroom","num_of_balcony","furnished_type","carpet_area",
 "total_num_floors","num_flat_on_floor","sell_type","facing","car_parking","construction_age","amenities","community_hall","plot_area","dimension","open_sides","plot_location","suitable_for"].join(', ');
+
 export async function pulishInvertory(req,userInfo){
   try
   {
@@ -57,18 +58,30 @@ console.error('Fetched lead data >>00:', leadDetail);
 
 
 /// Media File copy    
+// try{
+//   if("media_files" in leadDetail) {
+//   console.error('media_files Files  >>:', leadDetail['media_files']); 
+//  const mediaResult =  await copyMediaData(leadDetail['media_files'],invertoryId); 
+//  delete leadDetail.media_files;
+//     }
+//  }
+//  catch (err) {
+//    return "";
+//  } 
+let mediaFilesList = [];
+/// Media File copy    
 try{
   if("media_files" in leadDetail) {
-  console.error('media_files Files  >>:', leadDetail['media_files']); 
- const mediaResult =  await copyMediaData(leadDetail['media_files'],invertoryId); 
- delete leadDetail.media_files;
+  console.log('media_files Files  >>:', leadDetail['media_files']); 
+  mediaFilesList = leadDetail['media_files']; 
+  delete leadDetail.media_files;
     }
  }
  catch (err) {
+  console.error('media_files Files final >> Error', err);  
    return "";
  } 
 
- 
   // Inset in invertory table
   const {  data:daveData2, error:error3 } = await _supabase
   .from('inventories')
@@ -82,7 +95,18 @@ try{
     return returnResponse(500, `Failed: ${error3.message}`, null);
   }
 
-
+  try{
+    if(mediaFilesList.length>0) {
+    console.log('media_files Files  >>:', mediaFilesList); 
+    console.log('media_files Files  >> inventory_id :', daveData2["inventory_id"]); 
+   const mediaResult =  await copyMediaData(mediaFilesList,daveData2["inventory_id"]);
+   console.log('media_files Files final >>', mediaResult);  
+      }
+   }
+   catch (err) {
+    console.error('media_files Files final >> Error', err);  
+     return "";
+   }
 
    // Inset in invertory table
    const { data:daveData, error:error1 } = await _supabase
@@ -142,17 +166,30 @@ if (error1) {
             leadDetail["lead_id"] = reqData['lead_id'];  
             console.error('Fetched lead data >>:', leadDetail); 
 /// Media File copy    
+// try{
+//   if("media_files" in leadDetail) {
+//   console.error('media_files Files  >>:', leadDetail['media_files']); 
+//  const mediaResult =  await copyMediaData(leadDetail['media_files'],invertoryId); 
+//  delete leadDetail.media_files;
+//     }
+//  }
+//  catch (err) {
+//    return "";
+//  } 
+
+let mediaFilesList = [];
+/// Media File copy    
 try{
   if("media_files" in leadDetail) {
-  console.error('media_files Files  >>:', leadDetail['media_files']); 
- const mediaResult =  await copyMediaData(leadDetail['media_files'],invertoryId); 
- delete leadDetail.media_files;
+  console.log('media_files Files  >>:', leadDetail['media_files']); 
+  mediaFilesList = leadDetail['media_files']; 
+  delete leadDetail.media_files;
     }
  }
  catch (err) {
+  console.error('media_files Files final >> Error', err);  
    return "";
  } 
-
 
 const { data:daveData1, error:error2} = await _supabase
 .from('inventories')
@@ -168,7 +205,18 @@ if (error2) {
   return returnResponse(500, `Failed: ${error2.message}`, null);
 }
 
-
+try{
+  if(mediaFilesList.length>0) {
+  console.log('media_files Files  >>:', mediaFilesList); 
+  console.log('media_files Files  >> inventory_id :', invertoryId); 
+ const mediaResult =  await copyMediaData(mediaFilesList,invertoryId);
+ console.log('media_files Files final >>', mediaResult);  
+    }
+ }
+ catch (err) {
+  console.error('media_files Files final >> Error', err);  
+   return "";
+ }
 
 const { data: inventoryDetail, error: errorInventory }  = await asyncgetInventoryDetails(daveData1["inventory_id"]);
 if (errorInventory) {

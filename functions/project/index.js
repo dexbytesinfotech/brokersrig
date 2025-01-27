@@ -89,6 +89,7 @@ console.log(' User information ######################', userInfo);
       ])
       .select(`project_id`)
       .single();
+
       const { data:addedAddressData, error:addressError } = await _supabase
       .from('project_address')
       .insert(addressData)
@@ -211,8 +212,8 @@ console.log(' User information ######################', userInfo);
     return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
   }
 
- const projectReqData = getFilteredReqData(reqData,['property_type','property_size','asking_price','number_of_unit','remark','project_id']);
-
+ const projectReqData = getFilteredReqData(reqData,['property_type','property_size','asking_price','number_of_unit','remark','project_id','project_id','lead_type','full_adress']);
+ console.log(' projectReqData ***', projectReqData);
  const projectId = projectReqData['project_id'];
      projectReqData['is_published'] = false;
     const invertoryId = generateUniqueIntId({length : 4 ,sliceLength : 6});
@@ -225,7 +226,7 @@ console.log(' User information ######################', userInfo);
       projectReqData["max_budget"] = 0;
       projectReqData["asking_price"] = budgetValues[0];
       projectReqData["budget_label"] = `${budgetValues[0]} ${budgetValues[1]}` ;
-       }
+       }  
     console.log(' projectReqData information ###################### projectReqData', projectReqData);
     //  return returnResponse(200, `Project details ${projectId}`,projectReqData);
       const { data, error } = await _supabase
@@ -544,7 +545,7 @@ const { data, error } = await _supabase
 .eq('is_deleted',false)
 .maybeSingle();
 
-console.log('Found data', data);
+console.log('Found data publish listing >>', data);
 
 if(error) {
   console.error('Server error: new', error);
@@ -594,15 +595,17 @@ const { data:daveData1, error:error2} = await _supabase
 console.error('Fetched lead data >>00:', leadDetail); 
 
 
+let mediaFilesList = [];
 /// Media File copy    
 try{
   if("media_files" in leadDetail) {
-  console.error('media_files Files  >>:', leadDetail['media_files']); 
- const mediaResult =  await copyMediaData(leadDetail['media_files'],invertoryId); 
- delete leadDetail.media_files;
+  console.log('media_files Files  >>:', leadDetail['media_files']); 
+  mediaFilesList = leadDetail['media_files']; 
+  delete leadDetail.media_files;
     }
  }
  catch (err) {
+  console.error('media_files Files final >> Error', err);  
    return "";
  } 
 
@@ -620,7 +623,18 @@ try{
     return returnResponse(500, `Failed: ${error3.message}`, null);
   }
 
- 
+  try{
+    if(mediaFilesList.length>0) {
+    console.log('media_files Files  >>:', mediaFilesList); 
+    console.log('media_files Files  >> inventory_id :', daveData2["inventory_id"]); 
+   const mediaResult =  await copyMediaData(mediaFilesList,daveData2["inventory_id"]);
+   console.log('media_files Files final >>', mediaResult);  
+      }
+   }
+   catch (err) {
+    console.error('media_files Files final >> Error', err);  
+     return "";
+   } 
 
   const { data: inventoryDetail, error: errorInventory }  = await asyncgetInventoryDetails(daveData2["inventory_id"]);
   if (errorInventory) {
@@ -652,15 +666,18 @@ if (error1) {
 
             leadDetail["lead_id"] = reqData['lead_id'];  
             console.error('Fetched lead data >>:', leadDetail); 
+
+let mediaFilesList = [];
 /// Media File copy    
 try{
   if("media_files" in leadDetail) {
-  console.error('media_files Files  >>:', leadDetail['media_files']); 
- const mediaResult =  await copyMediaData(leadDetail['media_files'],invertoryId); 
- delete leadDetail.media_files;
+  console.log('media_files Files  >>:', leadDetail['media_files']); 
+  mediaFilesList = leadDetail['media_files']; 
+  delete leadDetail.media_files;
     }
  }
  catch (err) {
+  console.error('media_files Files final >> Error', err);  
    return "";
  } 
 
@@ -679,7 +696,17 @@ if (error2) {
   return returnResponse(500, `Failed: ${error2.message}`, null);
 }
 
-
+try{
+  if(mediaFilesList.length>0) {
+  console.log('media_files Files  >>:', mediaFilesList); 
+ const mediaResult =  await copyMediaData(mediaFilesList,daveData1["inventory_id"]);
+ console.log('media_files Files final >>', mediaResult);  
+    }
+ }
+ catch (err) {
+  console.error('media_files Files final >> Error', err);  
+   return "";
+ } 
 
 const { data: inventoryDetail, error: errorInventory }  = await asyncgetInventoryDetails(daveData1["inventory_id"]);
 if (errorInventory) {
@@ -886,14 +913,15 @@ async function asyncgetInventoryDetails(inventoryId) {
 
 async function copyMediaData(mediaDataList,invertoryId){
   try{
-    console.error('media_files Files ***** >>:', mediaDataList); 
+    
 
    const updatedMediaFiles = mediaDataList.map(item => ({
      ...item,  // Spread the existing properties
      inventory_id: invertoryId,  // Add the inventory_id
      media_for:"inventory"
    }));
-
+   console.log('media_files Files ***** >> 0:', mediaDataList);
+   console.log('media_files Files ***** >> 1:', updatedMediaFiles);
    // Fetch existing records from media_files based on file_id
 // const { data: existingFiles, error: fetchError } = await _supabase
 // .from('media_files')
@@ -915,7 +943,6 @@ const { data, error } = await _supabase
   .from('media_files')
   .upsert(updatedMediaFiles, { onConflict: ['file_id'] })
   .select('*');  // Fetch inserted rows
-   
    if (error) {
      console.error('Media file coppy error:', error);
      return error.message;

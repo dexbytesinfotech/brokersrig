@@ -26,7 +26,7 @@ serve(async (req) => {
   try {
          const url = new URL(req.url);
         notifyToAllFollowUps().then(response => {
-          return new Response("Listening for cron job notifications!");
+          return returnResponse(200,`Listening for cron job notifications!`,null); ;
         })
         .catch(error => {
           console.error(`Error sending notification error:`, error);

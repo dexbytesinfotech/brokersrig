@@ -165,8 +165,6 @@ else {
           }
 }
 
-
-
 async function updateLead(req,userInfo) {
 
   try {
@@ -353,8 +351,6 @@ return returnResponse(500, `Please enter mandatory fields data`, null);
    }
 }
 
-
-
 /// Delete leads
 async function deleteLead(req,userInfo) {
   try {
@@ -473,7 +469,6 @@ catch (err)
  }
 }
 
-
 /// Get  Lead type
 async function getLeads(req,userInfo) {
   try {
@@ -519,8 +514,6 @@ catch (err)
             return returnResponse(500,`User not exist`,null);
  }
 }
-
-
 
 /// Get  Lead type
 async function getContactLeads(req,userInfo) {
@@ -778,7 +771,7 @@ export async function addLeadFollowUp(req,userInfo){
 const reqData = await getApiRequest(req,"POST");
 console.log(' User information ######################', userInfo);
 
-  const missingKeys = validateRequredReqFields(reqData,['lead_id','contact_id','lead_status','lead_status_option','follow_up_remark','follow_up_date_time','follow_up_category']);
+  const missingKeys = validateRequredReqFields(reqData,['lead_id','contact_id','lead_status','lead_status_option','follow_up_date_time','follow_up_category']);
   if (missingKeys['missingKeys'].length > 0) {
     console.error('Please enter mandatory fields data', "error");
     return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
