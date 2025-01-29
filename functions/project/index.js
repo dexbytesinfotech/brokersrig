@@ -23,7 +23,7 @@ const projectReturnColumn = ["title",
 "project_status",
 "initial_payment",
 "payments_term_remark",
-"development_permission",
+"development_permission","brokerage_note",
 "construction_permission"].join(', ');
 
 const invertoryReturnColumn = ["created_at","preferred_location","min_budget","purpose","additional_details","lead_type","property_size","assigne_id","max_budget",
@@ -57,13 +57,11 @@ console.log(' User information ######################', userInfo);
     return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
   }
 
-      const projectReqData = getFilteredReqData(reqData,['title','developer_id','project_type','project_status','nearby_project','remark']);
+      const projectReqData = getFilteredReqData(reqData,['title','developer_id','project_type','project_status','nearby_project','remark','brokerage_type','brokerage_note']);
       const addressData =  getFilteredReqData(reqData,['city','project_full_address','landmark','lat','long','country','area_code']);
-     console.log(' projectReqData information ###################### projectReqData', projectReqData);
+
      const projectId = generateUniqueIntId({length : 4 ,sliceLength : 6});
      projectReqData['project_id'] = projectId;
-     console.log(' addressData information ###################### addressData', addressData);
- 
      addressData['project_id'] = projectId;
       const { data, error } = await _supabase
       .from('projects')
@@ -142,11 +140,14 @@ const { data: data1, error: error1 } = await _supabase
   .select(`projects(${projectReturnColumn},inventories(${invertoryOfProjectReturnColumn}),
     project_additional_details(${returnadditionalDetailColumn}),
     project_address(${returnaAddressColumn}),
-    media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')}))`)
+    media_files!left(
+      file_url, media_type, category, sub_category, file_id, media_for
+    ))`)
   .eq('is_deleted', false)
   .eq('user_id', userInfo.id)
   .eq('projects.is_deleted', false) // Filter on contact's 'is_deleted' (if needed)
   .eq('projects.is_published', true) 
+  .eq('projects.media_files.is_deleted', false) // Filters applied to `media_files`
   .order('id', { ascending: false });
 
 if (error1) {
@@ -747,12 +748,15 @@ export async function getProjectListing(req,userInfo) {
 const { data: data1, error: error1 } = await _supabase
 .from('rUserInventories')
   .select(`inventories(${invertoryOfProjectReturnColumn},
-  propertyType(${['title','property_type'].join(', ')}),media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')}))
+  propertyType(${['title','property_type'].join(', ')}), media_files!left(
+    file_url, media_type, category, sub_category, file_id, media_for, is_deleted
+  ))
 `)
   .eq('is_deleted', false)
   .eq('user_id', userInfo.id)
   .eq('project_id', projectId)
   .eq('inventories.is_deleted', false) // Filter on contact's 'is_deleted' (if needed)
+  .eq('inventories.media_files.is_deleted', false) // Filters applied to `media_files`
   .order('id', { ascending: false });
 
 if (error1) {
@@ -858,7 +862,7 @@ async function asyncgetProjectDetails(projectId) {
   project_additional_details(${returnadditionalDetailColumn}),
   project_address(${returnaAddressColumn}),
   developer(${['developer_name','developer_id'].join(', ')}),
-  media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
+  media_files(file_url,media_type,category,sub_category,file_id,media_for)
 `).eq('is_deleted', false)
   .eq('media_files.is_deleted', false)
   .eq('project_id', projectId).single();
@@ -905,7 +909,7 @@ async function asyncgetInventoryDetails(inventoryId) {
   ${invertoryReturnColumn},
   contacts(${returnContactColumn}),
   propertyType(${['title','property_type'].join(', ')}),
-  media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
+  media_files(file_url, media_type, category, sub_category, file_id, media_for)
 `).eq('is_deleted', false)
 .eq('media_files.is_deleted', false)
   .eq('inventory_id', inventoryId).single();
@@ -920,9 +924,7 @@ async function copyMediaData(mediaDataList,invertoryId){
      inventory_id: invertoryId,  // Add the inventory_id
      media_for:"inventory"
    }));
-   console.log('media_files Files ***** >> 0:', mediaDataList);
-   console.log('media_files Files ***** >> 1:', updatedMediaFiles);
-   // Fetch existing records from media_files based on file_id
+// Fetch existing records from media_files based on file_id
 // const { data: existingFiles, error: fetchError } = await _supabase
 // .from('media_files')
 // .select('*')

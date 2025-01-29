@@ -13,7 +13,7 @@ const rangMaxBudgetPer = 2;
 const leadReturnColumn = ["id","property_type","created_at","preferred_location","min_budget","purpose","additional_details","lead_type","property_size","assigne_id","max_budget",
 "city","lat","lng","full_adress","amount_symbol_id","country_code","is_deleted","is_verified","asking_price","sell_type","budget_label"].join(', ');
 const returnContactColumn = ['phone','first_name','last_name','contact_id','county_code'].join(', ');
-const returnFollowUpColumn = ['created_at','assigned_id','follow_up_id','lead_status','lead_status_option','follow_up_remark','follow_up_date_time','follow_up_category'].join(', ');
+const returnFollowUpColumn = ['created_at','assigned_id','follow_up_id','lead_status','lead_status_option','follow_up_remark','follow_up_date_time','follow_up_category','lead_id','notify_status'].join(', ');
 
 // Add lead
 async function addLead(req,userInfo) {
@@ -610,7 +610,7 @@ async function asyncgetLeadDetails(leadId) {
   .select(`${leadReturnColumn},
   contacts(${returnContactColumn}),
   propertyType(${['title','property_type'].join(', ')}),
-  media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
+  media_files(file_url, media_type, category, sub_category, file_id, media_for)
 `)
   .eq('is_deleted', false)
   .eq('media_files.is_deleted', false)
@@ -938,82 +938,57 @@ const reqData = await getApiRequest(req,"GET");
       console.log(' date only check #######', date);
       var dataList = [];
       var orQueryList = [];
+
+
+      let query = _supabase
+      .from('follow_up')
+      .select(`${returnFollowUpColumn},usersProfile(${['user_id', 'first_name'].join(', ')}),contacts(${['first_name','last_name','phone'].join(', ')})`)
+
       /// Return data acording to user base and lead base
       if(!(dateTime===null) && !(leadId===null)){
-        const { data, error } = await _supabase
-        .from('follow_up')
-        .select(`${returnFollowUpColumn},usersProfile(${['user_id', 'first_name'].join(', ')}),contacts(${['first_name','last_name','phone'].join(', ')})`)
-        .eq('user_id', userId)
+        query.eq('user_id', userId)
         .eq('is_deleted', false)
         .eq('lead_id', leadId)
         .filter('follow_up_date_time', 'gte', `${date}T00:00:00.000Z`) // Start of the day
-        .filter('follow_up_date_time', 'lt', `${date}T23:59:59.999Z`).order('created_at', { ascending: true });
-        if (error) {
-          console.error('Failed:', error);
-          return returnResponse(500, `Followup add Failed: ${error.message}`, null);
-        }
-      // Add lead in user lead refrence table
-      if(!(data===null) && (data.length>0)){
-        dataList = data;
-      }
+        .filter('follow_up_date_time', 'lt', `${date}T23:59:59.999Z`)
+        .order('follow_up_date_time', { ascending: true });
       }
       else if(!(dateTime===null)) {
-        // const { data, error } = await _supabase
-        // .from('follow_up')
-        // .select(`${returnFollowUpColumn},usersProfile(${['user_id', 'first_name'].join(', ')})`)
-        // .eq('user_id', userId)
-        // .eq('is_deleted', false)
-        // .eq('follow_up_date_time',date);
-  const { data, error } = await _supabase
-  .from('follow_up')
-  .select(`${returnFollowUpColumn},usersProfile(${['user_id', 'first_name'].join(', ')}),contacts(${['first_name','last_name','phone'].join(', ')})`)
-  .eq('user_id', userId)
+  query.eq('user_id', userId)
   .eq('is_deleted', false)
   .filter('follow_up_date_time', 'gte', `${date}T00:00:00.000Z`) // Start of the day
-  .filter('follow_up_date_time', 'lt', `${date}T23:59:59.999Z`).order('created_at', { ascending: true }); // End of the day
-
-        if (error) {
-          console.error('Failed:', error);
-          return returnResponse(500, `Followup add Failed: ${error.message}`, null);
-        }
-      // Add lead in user lead refrence table
-      if(!(data===null) && (data.length>0)){
-        dataList = data;
-      }
+  .filter('follow_up_date_time', 'lt', `${date}T23:59:59.999Z`) // End of the day
+  .order('follow_up_date_time', { ascending: true });
     }
 
       else if(!(leadId===null)){
-        const { data, error } = await _supabase
-      .from('follow_up')
-      .select(`${returnFollowUpColumn},usersProfile(${['user_id', 'first_name'].join(', ')}),contacts(${['first_name','last_name','phone'].join(', ')})`)
-      .eq('is_deleted', false)
+      query.eq('is_deleted', false)
       .eq('user_id', userId)
-      .eq('lead_id', leadId).order('created_at', { ascending: true });
-      if (error) {
-        console.error('Failed:', error);
-        return returnResponse(500, `Followup add Failed: ${error.message}`, null);
-      }
-    // Add lead in user lead refrence table
-    if(!(data===null) && (data.length>0)){
-      dataList = data;
-    }
+      .eq('lead_id', leadId).order('created_at', { ascending: true })
+      .order('follow_up_date_time', { ascending: true });
     }
     else {
-      const { data, error } = await _supabase
-      .from('follow_up')
-      .select(`${returnFollowUpColumn},usersProfile(${['user_id', 'first_name'].join(', ')}),contacts(${['first_name','last_name','phone'].join(', ')})`)
-      .eq('is_deleted', false)
+      query.eq('is_deleted', false)
       .eq('user_id', userId).order('created_at', { ascending: false });
-      if (error) {
-        console.error('Failed:', error);
-        return returnResponse(500, `Followup add Failed: ${error.message}`, null);
-      }
-    // Add lead in user lead refrence table
-    if(!(data===null) && (data.length>0)){
-      dataList = data;
-    }
     }
       
+    const { data, error } = await query;
+        if (error) {
+          console.error('Failed:', error);
+          return returnResponse(500, `Followup add Failed: ${error.message}`, null);
+        }
+      // Add lead in user lead refrence table
+      if(!(data===null) && (data.length>0)){
+if((dateTime===null) && !(leadId===null)){
+  dataList = data.sort((a, b) => 
+new Date(b.follow_up_date_time) - new Date(a.follow_up_date_time)
+);}
+else {
+  dataList = data.sort((a, b) => 
+  new Date(a.follow_up_date_time) - new Date(b.follow_up_date_time)
+);
+}
+      }
     // Add lead in user lead refrence table
     if(!(dataList===null) && (dataList.length>0)){
       return returnResponse(200, 'Success', dataList);

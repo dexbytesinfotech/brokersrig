@@ -85,7 +85,7 @@ async function addLead(req,userInfo) {
 const reqData = await getApiRequest(req,apiMethod);
 
  console.log(' User information ######################', userInfo);
- const missingKeys = validateRequredReqFields(reqData,['property_type','lead_type','contact_id','city']);
+ const missingKeys = validateRequredReqFields(reqData,['property_type','lead_type','contact_id']);
  if (missingKeys['missingKeys'].length > 0) {
    console.error('Please enter mandatory fields data', "error");
    return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
@@ -690,7 +690,10 @@ async function asyncgetLeadDetails(leadId) {
   contacts(${returnContactColumn}),
   propertyType(${['title','property_type'].join(', ')}),
   lead_assigne(usersProfile(${['user_id','first_name'].join(', ')})),
-  media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
+  inventories(${['inventory_id'].join(', ')}),
+  media_files(
+    file_url, media_type, category, sub_category, file_id, media_for
+  )
  
 `)
   .eq('is_deleted', false)
@@ -706,12 +709,15 @@ async function asyncgetLeadDetails(leadId) {
 
   let leadDetailDetails = leadDetail;
 
-  // if("inventories" in leadDetailDetails && leadDetailDetails["inventories"]!=null){
-  //   leadDetailDetails["inventories"] = true;
-  // }
-  // else {
-  //   leadDetailDetails["inventories"] = true;
-  // }
+  if("inventories" in leadDetailDetails && leadDetailDetails["inventories"]!=null && leadDetailDetails["inventories"].length>0){
+    // leadDetailDetails["inventories"] = true;
+    delete leadDetailDetails.inventories;
+    leadDetailDetails["is_published"] = true;
+  }
+  else {
+    delete leadDetailDetails.inventories;
+    leadDetailDetails["is_published"] = false;
+  }
 
   return { data: leadDetailDetails, error: error1 };
 }

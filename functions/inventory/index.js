@@ -485,25 +485,69 @@ export async function getInventories(req,userInfo) {
               return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
             }
 
-//             `inventories(${invertoryReturnColumn},contacts(${returnContactColumn}),
-//   propertyType(${['title','property_type'].join(', ')}))
-// `
-const { data: data1, error: error1 } = await _supabase
+// const { data: data1, error: error1 } = await _supabase
+// .from('rUserInventories')
+//   .select(`inventories(${invertoryReturnColumn},contacts(${returnContactColumn}),
+//   propertyType(${['title','property_type'].join(', ')}),media_files!inner(${['file_url','media_type','category','sub_category','file_id','media_for','is_deleted'].join(', ')}))
+// `)
+//   .eq('is_deleted', false)
+//   .eq('user_id', userInfo.id)
+//   .eq('inventories.is_deleted', false) // Filter on contact's 'is_deleted' (if needed)
+//   .eq('media_files.is_deleted', false)
+//   .order('id', { ascending: false });
+
+
+// const { data: data1, error: error1 } = await _supabase
 //   .from('rUserInventories')
 //   .select(`
-//   ${invertoryReturnColumn},
-//   contacts(${returnContactColumn}),
-//   propertyType(${['title','property_type'].join(', ')}),
-//   media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
-// `)
-.from('rUserInventories')
-  .select(`inventories(${invertoryReturnColumn},contacts(${returnContactColumn}),
-  propertyType(${['title','property_type'].join(', ')}),media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')}))
-`)
-  .eq('is_deleted', false)
-  .eq('user_id', userInfo.id)
-  .eq('inventories.is_deleted', false) // Filter on contact's 'is_deleted' (if needed)
- 
+//     inventories(
+//       ${invertoryReturnColumn},
+//       contacts(${returnContactColumn}),
+//       propertyType(title, property_type),
+//       media_files(
+//         file_url, media_type, category, sub_category, file_id, media_for
+//       )
+//     )
+//   `)
+//   .eq('is_deleted', false)
+//   .eq('user_id', userInfo.id)
+//   .eq('inventories.is_deleted', false)
+//   .eq('media_files.is_deleted', false) // Filter media_files by `is_deleted`
+//   .order('id', { ascending: false });
+
+// const { data: data1, error: error1 } = await _supabase
+//   .from('rUserInventories')
+//   .select(`
+//     inventories(
+//       ${invertoryReturnColumn},
+//       contacts(${returnContactColumn}),
+//       propertyType(title, property_type),
+//       media_files!left(
+//         file_url, media_type, category, sub_category, file_id, media_for, is_deleted
+//       )
+//     )
+//   `)
+//   .eq('is_deleted', false) // Filter `rUserInventories`
+//   .eq('user_id', userInfo.id) // Filter by user ID
+//   .eq('inventories.is_deleted', false) // Filter inventories
+//   .order('id', { ascending: false });
+
+const { data: data1, error: error1 } = await _supabase
+  .from('rUserInventories')
+  .select(`
+    inventories(
+      ${invertoryReturnColumn},
+      contacts(${returnContactColumn}),
+      propertyType(title, property_type),
+      media_files!left(
+        file_url, media_type, category, sub_category, file_id, media_for
+      )
+    )
+  `)
+  .eq('is_deleted', false) // Filter `rUserInventories`
+  .eq('user_id', userInfo.id) // Filter by user ID
+  .eq('inventories.is_deleted', false) // Filter inventories
+  .eq('inventories.media_files.is_deleted', false) // Ensure only non-deleted media_files are included
   .order('id', { ascending: false });
 
 if (error1) {
@@ -572,7 +616,7 @@ async function asyncgetLeadDetails(leadId) {
   .from('leads')
   .select(`
   *,
-  media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
+  media_files(file_url,media_type,category,sub_category,file_id,media_for)
 `)
   .eq('is_deleted', false)
   .eq('media_files.is_deleted', false)
@@ -586,7 +630,7 @@ async function asyncgetInventoryDetails(inventoryId) {
   ${invertoryReturnColumn},
   contacts(${returnContactColumn}),
   propertyType(${['title','property_type'].join(', ')}),
-  media_files(${['file_url','media_type','category','sub_category','file_id','media_for'].join(', ')})
+  media_files(file_url, media_type, category, sub_category, file_id, media_for)
 `).eq('is_deleted', false)
 .eq('media_files.is_deleted', false)
   .eq('inventory_id', inventoryId).single();
@@ -602,21 +646,6 @@ async function copyMediaData(mediaDataList,invertoryId){
      media_for:"inventory"
    }));
 
-   // Fetch existing records from media_files based on file_id
-// const { data: existingFiles, error: fetchError } = await _supabase
-// .from('media_files')
-// .select('*')
-// .in('file_id', updatedMediaFiles.map(file => file.file_id));  // Check by file_id
-
-// if (fetchError) {
-// console.error('Error fetching existing files:', fetchError.message);
-// }
-
-//    const { data, error } =  await _supabase
-//      .from('media_files')
-//      .insert(
-//        updatedMediaFiles
-//      ).select('*');
 
 // Perform the insert/upsert operation with the filtered list
 const { data, error } = await _supabase
