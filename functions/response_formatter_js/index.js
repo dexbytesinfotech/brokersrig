@@ -8,7 +8,9 @@ export function returnResponse(statusCode, message, data) {
       message: message, 
       result: data 
   }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json'
+       },
       status: statusCode,
   });
 }

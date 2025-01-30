@@ -34,7 +34,7 @@ async function asyncgetUserProfile(userId) {
 // Login Function 
 export async function userLogin (req){
   try {
-
+   
 /// Get data from API
 const reqData = await getApiRequest(req,"POST");
 if (reqData["lead_id"]<= 0) {
@@ -76,7 +76,6 @@ if (reqData["lead_id"]<= 0) {
       }
       catch (err) {
         new returnResponse(`Server error: ${err.message} ${userDataTemp}`, {
-          headers: { 'Content-Type': 'application/json' },
           status: 500,
         });
       }
@@ -85,7 +84,6 @@ if (reqData["lead_id"]<= 0) {
       }
       catch (err) {
         new returnResponse(`Server error Aouth :${authTotken} ${err.message} ${userDataTemp}`, {
-          headers: { 'Content-Type': 'application/json' },
           status: 500,
         });
       }

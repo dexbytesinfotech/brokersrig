@@ -11,6 +11,19 @@ const _supabase = createClient(_supabaseUrl, _supabaseAnonKey);
 
 serve(async (req) => {
   try {
+
+        // Handle OPTIONS Preflight Request
+        if (req.method === "OPTIONS") {
+          console.log("called API >>>> OPTIONS in:");
+          return new Response(null, {
+            status: 204, // No Content response
+            headers: {
+              "Access-Control-Allow-Origin": "*", // Allow all domains
+              "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+              "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            },
+          });
+        }
     // Extract request body
     const payload = await req.json();
     console.log('Incoming Payload:', payload);

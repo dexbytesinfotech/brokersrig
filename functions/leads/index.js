@@ -10,29 +10,31 @@ const _supabase = createClient(_supabaseUrl, _supabaseAnonKey);
 const rangMinBudgetPer = 2;
 const rangMaxBudgetPer = 2;
 
-const leadReturnColumn = ["id","property_type","created_at","preferred_location","min_budget","purpose","additional_details","lead_type","property_size","assigne_id","max_budget",
-"city","lat","lng","full_adress","amount_symbol_id","country_code","is_deleted","is_verified","asking_price","sell_type","budget_label"].join(', ');
-const returnContactColumn = ['phone','first_name','last_name','contact_id','county_code'].join(', ');
+// const leadReturnColumn = ["id","property_type","created_at","preferred_location","min_budget","purpose","additional_details","lead_type","property_size","assigne_id","max_budget",
+// "city","lat","lng","full_adress","amount_symbol_id","country_code","is_deleted","is_verified","asking_price","sell_type","budget_label"].join(', ');
+
 const returnFollowUpColumn = ['created_at','assigned_id','follow_up_id','lead_status','lead_status_option','follow_up_remark','follow_up_date_time','follow_up_category','lead_id','notify_status'].join(', ');
 
+const leadReturnColumn = ["id","created_at","preferred_location","min_budget","purpose","additional_details","lead_type","property_size","assigne_id","max_budget",
+"city","lat","lng","full_adress","amount_symbol_id","country_code","is_deleted","is_verified","asking_price","sell_type","budget_label"].join(', ');
+const returnContactColumn = ['phone','first_name','last_name','contact_id','county_code'].join(', ');
+
 // Add lead
-async function addLead(req,userInfo) {
+export async function addLead(req,userInfo) {
   try {
            const apiMethod = "POST";
-            // Validate headers and method
-            const errors = validateHeaders(apiMethod,req.headers);
-            if (errors.length > 0) {
-              return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
-            }
-
-            /// Get data from API
+/// Get data from API
 const reqData = await getApiRequest(req,apiMethod);
 
  console.log(' User information ######################', userInfo);
-
+ const missingKeys = validateRequredReqFields(reqData,['property_type','lead_type','contact_id']);
+ if (missingKeys['missingKeys'].length > 0) {
+   console.error('Please enter mandatory fields data', "error");
+   return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+ }
 const userData = {};
 
-if('property_type' in reqData && 'lead_type' in reqData && 'contact_id' in reqData && 'city' in reqData &&  ('budget_code' in reqData || 'asking_price' in reqData)) {
+if(('budget_code' in reqData || 'asking_price' in reqData)) {
 
   userData["property_type"] = reqData["property_type"];
   userData["lead_type"] = reqData["lead_type"];
@@ -119,9 +121,7 @@ if(!(JSON.stringify(userData) === '{}')){
     return returnResponse(500, `Failed: ${error.message}`, null);
   }
 const leadDetails = data;
-console.log(' User information ###################### leadDetails >> ', leadDetails);
 const leadId = leadDetails['id'];
-console.log(' User information ***************** leadDetails > leadId 0 > ', leadDetails['id']);
 console.log(' User information ***************** leadDetails > leadId 1 > ', leadId);
 // Add lead in user lead refrence table
 if(!(leadDetails===null)){
@@ -135,6 +135,21 @@ if(!(leadDetails===null)){
   ])
   .select(`lead_id`)
   .single();
+
+  const { data:assignedData, error:assignedError } = await _supabase
+  .from('lead_assigne')
+  .insert([
+    {
+      "assigned_id": userInfo['id'],
+      "assigned_by_id": userInfo['id'],
+      "lead_id": leadId
+    },
+  ])
+  .select(`lead_id`)
+  .single();
+  if (assignedError) {
+    console.error('Failed: to set assigned id ', assignedError);
+  }
   if (error) {
     console.error('Failed:', error);
     return returnResponse(500, `Failed: ${error.message}`, null);
@@ -165,17 +180,11 @@ else {
           }
 }
 
-async function updateLead(req,userInfo) {
+export async function updateLead(req,userInfo) {
 
   try {
     const apiMethod = "POST";
-     // Validate headers and method
-     const errors = validateHeaders(apiMethod,req.headers);
-     if (errors.length > 0) {
-       return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
-     }
-
-     /// Get data from API
+/// Get data from API
 const reqData = await getApiRequest(req,apiMethod);
 
 if (reqData["lead_id"]<= 0) {
@@ -258,13 +267,6 @@ else{
          userData["budget_code"] = reqData["budget_code"];
      }
 }
-// if('min_budget' in reqData){
-// userData["min_budget"] = reqData["min_budget"];
-// }
-
-// if('max_budget' in reqData){
-// userData["max_budget"] = reqData["max_budget"];
-// }
 
 if('lat' in reqData){
 userData["lat"] = reqData["lat"];
@@ -308,25 +310,6 @@ return returnResponse(500, `Failed: ${error.message}`, null);
 }
 var leadDetails = data;
 console.log(' User information ###################### leadDetails', leadDetails);
-// Add lead in user lead refrence table
-// if(!(leadDetails===null)){
-// const { data, error } = await _supabase
-// .from('rUserLeads')
-// .insert([
-// {
-// "user_id": userInfo['id'],
-// "lead_id": leadDetails['id']
-// },
-// ])
-// .select(`id`)
-// .single();
-
-// if (error) {
-// console.error('Failed:', error);
-// return returnResponse(500, `Failed: ${error.message}`, null);
-// }
-// }
-
 
 const { data: leadDetail, error: error1 }  = await asyncgetLeadDetails(reqData['lead_id']);
 if (error1) {
@@ -352,16 +335,10 @@ return returnResponse(500, `Please enter mandatory fields data`, null);
 }
 
 /// Delete leads
-async function deleteLead(req,userInfo) {
+export async function deleteLead(req,userInfo) {
   try {
            const apiMethod = "DELETE";
-            // Validate headers and method
-            const errors = validateHeaders(apiMethod,req.headers);
-            if (errors.length > 0) {
-              return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
-            }
-
-            /// Get data from API
+/// Get data from API
 const reqData = await getApiRequest(req,apiMethod);
 console.log(' User information ######################  reqData', reqData);
 if (reqData["id"]<= 0) {
@@ -431,15 +408,9 @@ catch (err)
 }
 
 /// Get  Lead type
-async function getLeadType(req,userInfo) {
+export async function getLeadType(req,userInfo) {
   try {
            const apiMethod = "GET";
-            // Validate headers and method
-            const errors = validateHeaders(apiMethod,req.headers);
-            if (errors.length > 0) {
-              return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
-            }
-
 const returnLeadTypeColumn = ['lead_type','created_at','title'].join(', ');
 // Check if the email exists in the `users` table
 const { data, error } = await _supabase
@@ -470,14 +441,8 @@ catch (err)
 }
 
 /// Get  Lead type
-async function getLeads(req,userInfo) {
+export async function getLeads(req,userInfo) {
   try {
-           const apiMethod = "GET";
-            // Validate headers and method
-            const errors = validateHeaders(apiMethod,req.headers);
-            if (errors.length > 0) {
-              return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
-            }
 const { data: data1, error: error1 } = await _supabase
   .from('rUserLeads')
   .select(`leads(${leadReturnColumn},contacts(${returnContactColumn}),
@@ -516,14 +481,10 @@ catch (err)
 }
 
 /// Get  Lead type
-async function getContactLeads(req,userInfo) {
+export async function getContactLeads(req,userInfo) {
   try {
            const apiMethod = "GET";
-            // Validate headers and method
-            const errors = validateHeaders(apiMethod,req.headers);
-            if (errors.length > 0) {
-              return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
-            }
+
  const reqData = await getApiRequest(req,apiMethod);
 console.log('Requested mobile:', reqData);
 console.log('Requested mobile >>>  :', reqData.get("contact_id"));
@@ -570,15 +531,9 @@ catch (err)
 }
 
 /// Get  Lead details
-async function getLeadDetails(req,userInfo) {
+export async function getLeadDetails(req,userInfo) {
   try {
            const apiMethod = "GET";
-            // Validate headers and method
-            const errors = validateHeaders(apiMethod,req.headers);
-            if (errors.length > 0) {
-              return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
-            }
-
             const reqData = await getApiRequest(req,apiMethod);
             console.log('Requested mobile:', reqData);
             console.log('Requested mobile >>>  :', reqData.get("lead_id"));
@@ -605,16 +560,42 @@ catch (err)
 }
 
 async function asyncgetLeadDetails(leadId) {
-  return await _supabase
+  const { data: leadDetail, error: error1 } = await _supabase
   .from('leads')
   .select(`${leadReturnColumn},
   contacts(${returnContactColumn}),
   propertyType(${['title','property_type'].join(', ')}),
-  media_files(file_url, media_type, category, sub_category, file_id, media_for)
+  lead_assigne(usersProfile(${['user_id','first_name'].join(', ')})),
+  inventories(${['inventory_id'].join(', ')}),
+  media_files(
+    file_url, media_type, category, sub_category, file_id, media_for
+  )
+ 
 `)
   .eq('is_deleted', false)
   .eq('media_files.is_deleted', false)
+  .eq('lead_assigne.is_deleted', false)
+  .eq('lead_assigne.is_active', true)
   .eq('id', leadId).single();
+
+  if (error1) {
+    console.error('Error fetching joined data:', error1);
+    return { data: null, error: error1 };
+  }
+
+  let leadDetailDetails = leadDetail;
+
+  if("inventories" in leadDetailDetails && leadDetailDetails["inventories"]!=null && leadDetailDetails["inventories"].length>0){
+    // leadDetailDetails["inventories"] = true;
+    delete leadDetailDetails.inventories;
+    leadDetailDetails["is_published"] = true;
+  }
+  else {
+    delete leadDetailDetails.inventories;
+    leadDetailDetails["is_published"] = false;
+  }
+
+  return { data: leadDetailDetails, error: error1 };
 }
 
 async function getBudgetLabel(budgetCode) {
@@ -635,6 +616,9 @@ if(data!=null){
 }
 return "";
 }
+
+
+
 
 export async function getMatchedLeads(req,userInfo) {
 try {

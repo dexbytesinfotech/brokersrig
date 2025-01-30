@@ -20,8 +20,20 @@ const onesignal = new OneSignal.DefaultApi(configuration);
 
 serve(async (req) => {
   try {
+
+        // Handle OPTIONS Preflight Request
+        if (req.method === "OPTIONS") {
+          return new Response(null, {
+            status: 204, // No Content response
+            headers: {
+              "Access-Control-Allow-Origin": "*", // Allow all domains
+              "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+              "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            },
+          });
+        }
           // Extract request body
-          const payload = await req.json();
+   const payload = await req.json();
 
     // Extract request body first
     const { record , table, eventType , type} = payload;

@@ -7,8 +7,7 @@ import {pulishInvertory,getInventories,getInventoryDetail,addListingAdditionalDe
 import {getPriceRange,addMediaFile,deleteMediaFile} from "../mobile_app_config/index.js";
 
 import {getDevelopers,addDeveloper} from "../developers/index.js";
-import {addLeadFollowUp,getLeadAllFollowUps,getLeadFollowUpDetail,updateLeadFollowUp,getMatchedLeads} from "../leads/index.js";
-
+import {addLeadFollowUp,getLeadAllFollowUps,getLeadFollowUpDetail,updateLeadFollowUp,getMatchedLeads,  getLeadType,addLead,updateLead,deleteLead,getLeads,getLeadDetails,getContactLeads} from "../leads/index.js";
 
 import {addProject,addListing,getAllProjects,getProjectListing,addPaymentTerms,getProjectDetail,addProjectAdditionalDetails,addProjectMediaFile,deleteProjectMediaFile} from "../project/index.js";
 
@@ -22,10 +21,22 @@ const _supabase = createClient(_supabaseUrl, _supabaseAnonKey);
 
 serve(async (req) => {
   try {
+         
          const url = new URL(req.url);
          console.log("called API >>>> :", url);
-///,['/lead/get_lead_type','/lead/add_lead','/lead/update_lead','/lead/delete_lead','/lead/get_leads','/lead/lead_details','/lead/get_contacts_leads']
-            // Validate headers and method
+    // Handle OPTIONS Preflight Request
+    if (req.method === "OPTIONS") {
+      console.log("called API >>>> OPTIONS in:", url);
+      return new Response(null, {
+        status: 204, // No Content response
+        headers: {
+          "Access-Control-Allow-Origin": "*", // Allow all domains
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        },
+      });
+    }
+
   const validateEndPoint = getValidateEndPoint(req);
   if (validateEndPoint===null) {
     return returnResponse(400,validateEndPoint,null);
@@ -36,292 +47,83 @@ serve(async (req) => {
     return returnResponse(400,validateAllowedMethodErrors,null);
   }
 
-  
-  /// Publish invertory
-  if(validateEndPoint==="/inventory/publish" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await pulishInvertory(req,userInfo);
-   }
-
-   if(validateEndPoint==="/listing/add_additional_detail" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await addListingAdditionalDetails(req,userInfo);
-   }
-   
-   if(validateEndPoint==="/listing/additional_detail" && validateSingleApiMethods('GET',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await getListingAdditionalDetails(req,userInfo);
-   }
-
-   else if(validateEndPoint==="/inventory/getInventories" && validateSingleApiMethods('GET',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await getInventories(req,userInfo);
-   }
-
-   else if(validateEndPoint==="/inventory/getInventoryDetail" && validateSingleApiMethods('GET',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await getInventoryDetail(req,userInfo);
-   }
-
-   else if(validateEndPoint==="/media/add_media" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await addMediaFile(req,userInfo);
-   }
-
-   else if(validateEndPoint==="/media/delete_media" && validateSingleApiMethods('DELETE',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await deleteMediaFile(req,userInfo);
-   }
-
-   
-
-   else if(validateEndPoint==="/update_user_profile" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await updateUserProfile(req,userInfo);
-   }
-
-   else if(validateEndPoint==="/get_user_profile" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await getProfile(req,userInfo);
-   }
-
-   else if(validateEndPoint==="/add_business_card" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await manageUserBusinessCard(req,userInfo,"add");
-   }
-   else if(validateEndPoint==="/update_business_card" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await manageUserBusinessCard(req,userInfo,"update");
-   }
-
-   else if(validateEndPoint==="/get_business_card" && validateSingleApiMethods('GET',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await manageUserBusinessCard(req,userInfo,"getDetail");
-   }
-
-   else if(validateEndPoint==="/delete_business_card" && validateSingleApiMethods('DELETE',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await manageUserBusinessCard(req,userInfo,"deleteCard");
-   }
-
-   else if(validateEndPoint==="/change_password" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await changePassword(req,userInfo);
-   }
-   
-   else if(validateEndPoint==="/delete_account" && validateSingleApiMethods('DELETE',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await deleteAccount(req,userInfo);
-   }
-
-   // add Project
-   else if(validateEndPoint==="/project/add" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await addProject(req,userInfo);
-   }
-
-   else if(validateEndPoint==="/project/add_listing" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await addListing(req,userInfo);
-   }
-
-   else if(validateEndPoint==="/project/get_listing" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await getProjectListing(req,userInfo);
-   }
 
 
-   else if(validateEndPoint==="/project/get_projects" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await getAllProjects(req,userInfo);
-   }
-
-   else if(validateEndPoint==="/project/add_payment_terms" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await addPaymentTerms(req,userInfo);
-   }
-
-
-   else if(validateEndPoint==="/project/add_project_additional_details" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await addProjectAdditionalDetails(req,userInfo);
-   }
-
-
-   else if(validateEndPoint==="/project/add_project_media" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await addProjectMediaFile(req,userInfo);
-   }
-
-   else if(validateEndPoint==="/project/delet_project_media" && validateSingleApiMethods('DELETE',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await deleteProjectMediaFile(req,userInfo);
-   }
-
-   else if(validateEndPoint==="/project/project_details" && validateSingleApiMethods('GET',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await getProjectDetail(req);
-   }
-   
-   else if(validateEndPoint==="/developer/add" && validateSingleApiMethods('GET',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await addDeveloper(req);
-   }   
-   else if(validateEndPoint==="/developer/get_developers" && validateSingleApiMethods('GET',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await getDevelopers(req);
-   }
-
-  
-   else if(validateEndPoint==="/lead/add_follow_up" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await addLeadFollowUp(req,userInfo);
-   }
-
-   else if(validateEndPoint==="/lead/update_follow_up" && validateSingleApiMethods('POST',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await updateLeadFollowUp(req,userInfo);
-   }
-
-   else if(validateEndPoint==="/lead/get_all_follow_up" && validateSingleApiMethods('GET',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await getLeadAllFollowUps(req,userInfo);
-   }
+const apiMappings = {
+  "/inventory/publish": { method: "POST", handler: pulishInvertory },
+  "/listing/add_additional_detail": { method: "POST", handler: addListingAdditionalDetails},
+  "/listing/additional_detail": { method: "GET", handler: getListingAdditionalDetails},
+  "/inventory/getInventories": { method: "GET", handler: getInventories},
+  "/inventory/getInventoryDetail": { method: "GET", handler: getInventoryDetail},
+  "/media/add_media": { method: "POST", handler: addMediaFile},
+  "/media/delete_media": { method: "DELETE", handler: deleteMediaFile},
+  "/update_user_profile": { method: "POST", handler: updateUserProfile},
+  "/get_user_profile": { method: "POST", handler: getProfile},
+  "/add_business_card": { method: "POST", handler: manageUserBusinessCard,subAction: "add"},
+  "/update_business_card": { method: "POST", handler: manageUserBusinessCard,subAction: "update"},
+  "/get_business_card": { method: "GET", handler: manageUserBusinessCard,subAction: "getDetail"},
+  "/delete_business_card": { method: "DELETE", handler: manageUserBusinessCard,subAction: "deleteCard"},
+  "/change_password": { method: "POST", handler: changePassword},
+  "/delete_account": { method: "DELETE", handler: deleteAccount},
+  "/project/add": { method: "POST", handler: returnResponse},
+  "/project/add_listing": { method: "POST", handler: addListing},
+  "/project/get_listing": { method: "POST", handler: getProjectListing},
+  "/project/get_projects": { method: "POST", handler: getAllProjects},
+  "/project/add_payment_terms": { method: "POST", handler: addPaymentTerms},
+  "/project/add_project_additional_details": { method: "POST", handler: addProjectAdditionalDetails},
+  "/project/add_project_media": { method: "POST", handler: addProjectMediaFile},
+  "/project/delet_project_media": { method: "DELETE", handler: deleteProjectMediaFile},
+  "/project/project_details": { method: "GET", handler: getProjectDetail},
+  "/developer/add": { method: "POST", handler: addDeveloper,validateUser:false},
+  "/developer/get_developers": { method: "GET", handler: getDevelopers,validateUser:false},
+  "/lead/add_follow_up": { method: "POST", handler: addLeadFollowUp},
+  "/lead/update_follow_up": { method: "POST", handler: addLeadFollowUp},
+  "/lead/get_all_follow_up": { method: "GET", handler: addLeadFollowUp},
+  "/lead/get_lead_type": { method: "GET", handler: getLeadType},
+  "/lead/add_lead": { method: "POST", handler: addLead},
+  "/lead/update_lead": { method: "POST", handler: updateLead},
+  "/lead/delete_lead": { method: "DELETE", handler: deleteLead},
+  "/lead/get_leads": { method: "GET", handler: getLeads},
+  "/lead/lead_details": { method: "GET", handler: getLeadDetails},
+  "/lead/get_contacts_leads": { method: "GET", handler: getContactLeads},
+  "/lead/get_follow_up_details": { method: "GET", handler: getLeadFollowUpDetail},
+  "/lead/get_matched_leads": { method: "GET", handler: getMatchedLeads},
 
 
-   else if(validateEndPoint==="/lead/get_follow_up_details" && validateSingleApiMethods('GET',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await getLeadFollowUpDetail(req,userInfo);
-   }
+  "/mobile_app_config/get_price_range": { method: "GET", handler: getPriceRange,validateUser:false},
+  "/user_login": { method: "POST", handler: userLogin,validateUser:false},
+  "/set_password": { method: "POST", handler: setPassword,validateUser:false},
+  "/forgot_password": { method: "POST", handler: forgotPassword,validateUser:false},
+  "/register_user": { method: "POST", handler: registerUser,validateUser:false}
+};
 
-   else if(validateEndPoint==="/lead/get_matched_leads" && validateSingleApiMethods('GET',req.headers).length===0){
-    const userInfo = await validateUserAuthorization(req);
-    if (userInfo===null) {
-      return returnResponse(400,"Unexpected token",null);
-    }
-    return await getMatchedLeads(req,userInfo);
-   }
-   
-   
-   
-   
-   else if(validateEndPoint==="/mobile_app_config/get_price_range" && validateSingleApiMethods('GET',req.headers).length===0){
-    return await getPriceRange(req);
-   }
-   else if(validateEndPoint==="/user_login" && validateSingleApiMethods('POST',req.headers).length===0){
-    return await userLogin(req);
-   }
-   else if(validateEndPoint==="/set_password" && validateSingleApiMethods('POST',req.headers).length===0){
-    return await setPassword(req);
-   }
-   else if(validateEndPoint==="/forgot_password" && validateSingleApiMethods('POST',req.headers).length===0){
-    return await forgotPassword(req);
-   }
-   else if(validateEndPoint==="/register_user" && validateSingleApiMethods('POST',req.headers).length===0){
-    return await registerUser(req);
-   }
+const apiConfig = apiMappings[validateEndPoint];
+if (apiConfig && validateSingleApiMethods(apiConfig.method, req.headers).length === 0) {
+const subAction = apiConfig?.hasOwnProperty("subAction")?apiConfig.subAction:""; 
+const validateUser = apiConfig?.hasOwnProperty("validateUser")?apiConfig.validateUser:true;
 
-   
-   
+let userInfo = null;
+if(validateUser===true){
+  userInfo = await validateUserAuthorization(req);
+  if (!userInfo) {
+      return returnResponse(400, "Unexpected token", null);
+  }
+}
 
-
-
-  
-   
-   
-
-
-
+if(!(subAction==="") && validateUser===true){
+  return await apiConfig.handler(req, userInfo,apiConfig.subAction);
+}
+else if(subAction==="" && validateUser===false){
+  return await apiConfig.handler(req, apiConfig.subAction);
+}
+else if(subAction==="" && validateUser===true){
+  return await apiConfig.handler(req, userInfo);
+}
+// No need any u
+else if(subAction==="" && validateUser===false){
+  return await apiConfig.handler(req);
+}
+}
 
   return returnResponse(400,"Invalid HTTP method.",null);
   } 
@@ -384,7 +186,8 @@ function getHeaderAuthorization(headers) {
     const headers = req.headers;
     const method = req.method;
     const errors = [];
-    console.log("method >>************ * * >> 0000 :", method);
+    console.log("method >>************ * * >> 0000 method :", method);
+    console.log("method >>************ * * >> 0000 headers :", headers);
     // Validate HTTP method
     if (!["post", "get","delete"].includes(method.toLowerCase())) {
       console.log("userInfo >>************ * * >> 0000 :", method);
@@ -414,7 +217,6 @@ function getHeaderAuthorization(headers) {
       console.log("userInfo >>************ * * >> 1111000 :", contentType);
       errors.push("Invalid or missing Content-Type. Expected 'application/json'.");
     }
-  
     // Add additional header validations if necessary
     return errors;
   }

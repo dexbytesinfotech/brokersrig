@@ -11,44 +11,6 @@ const _supabase = createClient(_supabaseUrl, _supabaseAnonKey);
 
 const acceptMediaFor = ["leads","inventory","property","project","followup"];
 const acceptMediaCategory = ["profile","photo","map","brochure"];
-// const handler = (req) => {
-//   const url = new URL(req.url);
-//   const query = url.searchParams.get("name") || "World";
-//   return new Response(`Hello, ${query}!`, { status: 200 });
-// };
-// await serve(handler, { port: 54321 });
-
-// serve(async (req) => {
-//   try {
-//     const url = new URL(req.url);
-//     console.log("Called API:", url.pathname);
-
-//     const validateError = validateEndPoint(req, ['/mobile_app_config/get_price_range','/mobile_app_config/get_price_allrange']);
-//     if (!validateError) {
-//       return returnResponse(400, JSON.stringify({ error: "Invalid endpoint" }), null);
-//     }
-
-//     // const authToken = getHeaderAuthorization(req.headers);
-//     // if (!authToken) {
-//     //   return returnResponse(401, JSON.stringify({ error: "Authorization token missing" }), null);
-//     // }
-
-//     // const userInfo = await verifyJWT(authToken);
-//     // if (!userInfo) {
-//     //   return returnResponse(403, JSON.stringify({ error: "Invalid token" }), null);
-//     // }
-
-//     if (url.pathname === "/mobile_app_config/get_price_range") {
-//       return await getPriceRange(req);
-//     }
-
-//     return returnResponse(400, JSON.stringify({ error: "Unsupported endpoint" }), null);
-//   } catch (err) {
-//     console.error("Server error:", err);
-//     return returnResponse(500, JSON.stringify({ error: "Internal Server Error" }), null);
-//   }
-// });
-
 
 /// Get  Lead type
 export async function getPriceRange(req) {

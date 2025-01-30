@@ -14,7 +14,20 @@ serve(async (req) => {
          const url = new URL(req.url);
          console.log("called API >>>> :", url);
 
-            // Validate headers and method
+             // Handle OPTIONS Preflight Request
+    if (req.method === "OPTIONS") {
+      console.log("called API >>>> OPTIONS in:", url);
+      return new Response(null, {
+        status: 204, // No Content response
+        headers: {
+          "Access-Control-Allow-Origin": "*", // Allow all domains
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        },
+      });
+    }
+    
+  // Validate headers and method
   const validateError = validateEndPoint(req,['/account_type/get_account_type']);
 
   if (validateError===null) {
@@ -32,15 +45,6 @@ serve(async (req) => {
   if(validateError==="/account_type/get_account_type"){
     return await getAcountType(req,userInfo);
    }
-  // else if(validateError==="/account_type/get_account_type"){
-  //  return await addContact(req,userInfo);
-  // }
-  // else if(validateError==="/contact/update"){
-  //   return await updateContact(req,userInfo);
-  //  }
-  //  else if(validateError==="/contact/delete"){
-  //   return await deleteContact(req,userInfo);
-  //  }
 
   return returnResponse(400,JSON.stringify({ error: "Validation failed", details: validateError }),null);
 

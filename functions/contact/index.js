@@ -13,7 +13,18 @@ serve(async (req) => {
   try {
          const url = new URL(req.url);
          console.log("called API >>>> :", url);
-
+    // Handle OPTIONS Preflight Request
+    if (req.method === "OPTIONS") {
+      console.log("called API >>>> OPTIONS in:", url);
+      return new Response(null, {
+        status: 204, // No Content response
+        headers: {
+          "Access-Control-Allow-Origin": "*", // Allow all domains
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        },
+      });
+    }
             // Validate headers and method
   const validateError = validateEndPoint(req,['/contact/add','/contact/update','/contact/delete','/contact/get_all_contacts','/contact/get_contacts','/contact/is_valid_contact']);
 
