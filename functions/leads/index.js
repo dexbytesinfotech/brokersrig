@@ -2,6 +2,8 @@ import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
 import { returnResponse } from "../response_formatter_js/index.js";// Assuming this module exports `returnResponse`
 import { validateHeaders, getHeaderAuthorization,validateEndPoint,getApiRequest,getMinMaxPriceFromBudgetCode,getPriceFromString,generateUniqueIntId,validateRequredReqFields,getFilteredReqData,formatNumber} from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
 
+// import { notifyToAllFollowUps } from "../pg_notify_cron_schedule/index.js";// Assuming this module exports `returnResponse`
+
 // Environment variables
 const _supabaseUrl = Deno.env.get('BASE_SUPABASE_URL');
 const _supabaseAnonKey = Deno.env.get('BASE_SUPABASE_ANON_KEY');
@@ -685,8 +687,6 @@ if ('city' in localReqData) {
 
 // Add the filter only if city has a value
 if ('sell_type' in localReqData) {
-  // query = query.eq('leads.sell_type', localReqData['sell_type']) // Correct field path
-  // .not('leads.sell_type', 'is', null);
   query = query.ilike('leads.sell_type', `%${localReqData['sell_type']}%`);
 }
 
@@ -695,13 +695,10 @@ if ('asking_price' in localReqData) {
 
   let askingPrice = localReqData['asking_price'];
 
-
   if(searchLeadType.toLowerCase()==="rental" || searchLeadType.toLowerCase()==="sell"){
     const difference = (askingPrice * rangMinBudgetPer) / 100;
     let lowerBoundPrice = askingPrice - difference;
     let upperBoundPrice = askingPrice + difference;
-    console.log('askingPrice data >>>> min', lowerBoundPrice);
-    console.log('askingPrice data >>>> max', upperBoundPrice);
     query = query.gte('leads.asking_price', lowerBoundPrice)  // follow_up_date_time >= lowerBound
     .lte('leads.asking_price', upperBoundPrice);  // follow_up_date_time <= upperBound
   }
@@ -709,15 +706,10 @@ if ('asking_price' in localReqData) {
     const difference = (askingPrice * rangMaxBudgetPer) / 100;
     let lowerBoundPrice = askingPrice - difference;
     let upperBoundPrice = askingPrice + difference;
-    console.log('askingPrice data >>>> min', lowerBoundPrice);
-    console.log('askingPrice data >>>> max', upperBoundPrice);
     query = query.gte('leads.max_budget', lowerBoundPrice)  // follow_up_date_time >= lowerBound
     .lte('leads.max_budget', upperBoundPrice);  // follow_up_date_time <= upperBound
   }
 }
-
-
-
 
 const { data: data1, error: error1 } = await query;
 
@@ -727,8 +719,6 @@ if (error1) {
   console.log('Joined data:', data1);
 }
 
-// // Single row returned
-// const leads = leadsData;
 console.log('propertyType found: >>> ', {"propertyType":propertyType,data:data1});
 
 if(data1!=null && data1.length>0){
@@ -746,6 +736,29 @@ catch (err)
             console.error('Server error: new', err);
             return returnResponse(500,`User not exist`,null);
  }
+}
+
+// Function to fetch data within the circle's radius
+function fetchDataWithinRadius(centerLat, centerLng, radius, locations) {
+  return locations.filter(location => {
+      const distance = getDistance(centerLat, centerLng, location.lat, location.lng);
+      return distance <= radius;
+  });
+}
+// Function to calculate distance between two coordinates using the Haversine formula
+function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  
+  const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * 
+      Math.cos(lat2 * (Math.PI / 180)) * 
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c * 1000; // Convert km to meters
 }
 
 export async function addLeadFollowUp(req,userInfo){
@@ -813,7 +826,7 @@ console.log(' User information ######################', userInfo);
 export async function updateLeadFollowUp(req,userInfo){
   try
   {
-    // return await notifyToAllFollowUps();
+    //  return await notifyToAllFollowUps();
 /// Get data from API
 const reqData = await getApiRequest(req,"POST");
 console.log(' User information ######################', userInfo);
@@ -873,7 +886,7 @@ console.log(' User information ######################', userInfo);
     return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
   }
 
-      const localReqData = getFilteredReqData(reqData,['follow_up_id','lead_status','lead_status_option','follow_up_remark','follow_up_date_time']);
+     const localReqData = getFilteredReqData(reqData,['follow_up_id','lead_status','lead_status_option','follow_up_remark','follow_up_date_time']);
      const followupId =  localReqData['follow_up_id'];
      localReqData['follow_up_id'] = followupId;
      localReqData['user_id'] = userInfo['id'];
@@ -907,22 +920,21 @@ console.log(' User information ######################', userInfo);
 export async function getLeadAllFollowUps(req,userInfo){
   try
   {
-/// Get data from API
-const reqData = await getApiRequest(req,"GET");
+       /// Get data from API
+      const reqData = await getApiRequest(req,"GET");
 
-     const localReqData = getFilteredReqData(reqData,['lead_id','follow_up_date_time']);
-     console.log(' List Lead Foloup### localReqData', localReqData);
+      const localReqData = getFilteredReqData(reqData,['lead_id','follow_up_date_time','item_limit']);
+      console.log(' List Lead Foloup### localReqData', localReqData);
 
       const userId = userInfo['id'] ?? null; // Use null if undefined
       const leadId = localReqData['lead_id'] ?? null; // Use null if undefined
-      
+      const itemLimit = localReqData['item_limit']??50;
       const dateTime = localReqData['follow_up_date_time'] ?? null; // Use null if undefined
       const date = (!(dateTime===null) && !(dateTime===""))?new Date(Number(dateTime)).toISOString().split('T')[0] : null;
       // Format the date to YYYY-MM-DD
       console.log(' date only check #######', date);
       var dataList = [];
       var orQueryList = [];
-
 
       let query = _supabase
       .from('follow_up')
@@ -955,7 +967,9 @@ const reqData = await getApiRequest(req,"GET");
       query.eq('is_deleted', false)
       .eq('user_id', userId).order('created_at', { ascending: false });
     }
-      
+    
+    query.limit(itemLimit);
+
     const { data, error } = await query;
         if (error) {
           console.error('Failed:', error);

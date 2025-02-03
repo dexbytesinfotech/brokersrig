@@ -1,10 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
-import * as OneSignal from 'https://esm.sh/@onesignal/node-onesignal@1.0.0-beta9';
 import { returnResponse } from "../response_formatter_js/index.js";// Assuming this module exports `returnResponse`
-import {verifyJWT } from "../jwt_auth/index.js";
-
-import { validateHeaders, getHeaderAuthorization,validateEndPoint,getApiRequest,getMinMaxPriceFromBudgetCode,getPriceFromString,generateUniqueIntId,validateRequredReqFields,getFilteredReqData,formatNumber} from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
 
 // Environment variables
 const _supabaseUrl = Deno.env.get('BASE_SUPABASE_URL');
@@ -39,7 +35,7 @@ serve(async (req) => {
   }
 });
 
- async function notifyToAllFollowUps(){
+ export async function notifyToAllFollowUps(){
   try
   {
     const notifyBefore = 10;  // in minutes
@@ -76,18 +72,16 @@ if (error) {
         .from('follow_up')
         .update({ notify_status: true })
         .in('assigned_id',ids) 
-        // console.log('Success updatedData:', result);
       }
       catch(error)
       {
         console.error('Server side error ', error);
         return returnResponse(500,`Server side error ${error}`,null);
       }
-      const result = await notifyToAllIUsers({data:data});
+      const result = await notifyToAllIUsers(data);
       return returnResponse(200, 'Success >', result);
     }
-    const result = await notifyToAllIUsers({data:data});
-    return returnResponse(200, `No data found`, result);
+    return returnResponse(200, `No data found  > `, null);
   }
   catch (err) {
     return returnResponse(500,`Server side error ${err}`,null);
@@ -152,8 +146,8 @@ const sendNotification = async (subscriptionIdsArray, notificationMsg) => {
   
   const notificationData = {
     app_id: _OnesignalAppId_,
-    contents: { en: `${notificationMsg.contents}` },
-    headings: { en: `${notificationMsg.headings}` },
+    contents: { en: `${notificationMsg.contents}` }, // Message body
+    headings: { en: `${notificationMsg.headings}` }, // Message title
     data: notificationMsg.data, // Correct structure; `data` doesn't need the `en` key
     include_subscription_ids: subscriptionIdsArray // Use `include_player_ids` for targeting specific users
   };
@@ -173,12 +167,19 @@ const sendNotification = async (subscriptionIdsArray, notificationMsg) => {
 };
 
 function getNotificationMsg(notificationType, record) {
-
   let usersProfile = record['usersProfile'];
+  let timeStr = record['follow_up_date_time'];
+  const date = new Date(timeStr);
+  timeStr = date.toLocaleTimeString("en-GB", {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: true,
+});
   return {
     name: "",
-    contents: `Your Follow up call/meeting with ${usersProfile['first_name']} is coming up.`,
-    headings: "Follow Up Reminder in 10 Minutes",
+    contents: `Your Follow up call/meeting with ${usersProfile['first_name']} is coming up at ${timeStr}.`,
+    headings: "Client Meeting",
     data: {"other_info":`Intraday call for `},
   };
 }
