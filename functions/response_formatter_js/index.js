@@ -9,6 +9,7 @@ export function returnResponse(statusCode, message, data) {
       result: data 
   }), {
       headers: { 
+        "Access-Control-Allow-Origin": "*", // Allow all domains
         'Content-Type': 'application/json'
        },
       status: statusCode,

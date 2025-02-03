@@ -1,78 +1,15 @@
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+
 import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
 import { returnResponse } from "../response_formatter_js/index.js";// Assuming this module exports `returnResponse`
 import { validateHeaders, getHeaderAuthorization, getApiRequest,validateEndPoint,generateUniqueIntId } from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
-import {verifyJWT } from "../jwt_auth/index.js";
+
 
 // Environment variables
 const _supabaseUrl = Deno.env.get('BASE_SUPABASE_URL');
 const _supabaseAnonKey = Deno.env.get('BASE_SUPABASE_ANON_KEY');
 const _supabase = createClient(_supabaseUrl, _supabaseAnonKey);
 
-serve(async (req) => {
-  try {
-         const url = new URL(req.url);
-         console.log("called API >>>> :", url);
-    // Handle OPTIONS Preflight Request
-    if (req.method === "OPTIONS") {
-      console.log("called API >>>> OPTIONS in:", url);
-      return new Response(null, {
-        status: 204, // No Content response
-        headers: {
-          "Access-Control-Allow-Origin": "*", // Allow all domains
-          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        },
-      });
-    }
-            // Validate headers and method
-  const validateError = validateEndPoint(req,['/contact/add','/contact/update','/contact/delete','/contact/get_all_contacts','/contact/get_contacts','/contact/is_valid_contact']);
-
-  if (validateError===null) {
-    return returnResponse(400,JSON.stringify({ error: "Validation failed", details: validateError }),null);
-  }
-  
-  const authToken = getHeaderAuthorization(req.headers);
-
-  const userInfo = await verifyJWT(authToken);
-  if (userInfo===null) {
-    return returnResponse(400,JSON.stringify({ error: "Unexpected token"}),null);
-  }
-
-  /// add contact
-  if(validateError==="/contact/add"){
-   return await addContact(req,userInfo);
-  }
-  else if(validateError==="/contact/update"){
-    return await updateContact(req,userInfo);
-   }
-   else if(validateError==="/contact/delete"){
-    return await deleteContact(req,userInfo);
-   }
-
-   else if(validateError==="/contact/get_contacts"){
-    return await getContacts(req,userInfo);
-   }
-
-   else if(validateError==="/contact/get_all_contacts"){
-    return await getAllContacts(req,userInfo);
-   }
-
-   else if(validateError==="/contact/is_valid_contact"){
-    return await getValidedContact(req,userInfo);
-   }
-
-  return returnResponse(400,JSON.stringify({ error: "Validation failed", details: validateError }),null);
-
-  } 
-  catch (err) {
-    console.error('Server error: new', err);
-    return returnResponse(500,`User not exist`,null);
-  }
-});
-
-
-async function addContact(req,userInfo) {
+export async function addContact(req,userInfo) {
   try {
            const apiMethod = "POST";
             // Validate headers and method
@@ -161,9 +98,7 @@ else {
           }
 }
 
-
-
-async function updateContact(req,userInfo) {
+export async function updateContact(req,userInfo) {
   try {
            const apiMethod = "POST";
             // Validate headers and method
@@ -243,10 +178,8 @@ else {
           }
 }
 
-
-
 /// Delete contact
-async function deleteContact(req,userInfo) {
+export async function deleteContact(req,userInfo) {
   try {
            const apiMethod = "DELETE";
             // Validate headers and method
@@ -320,9 +253,8 @@ catch (err)
             return returnResponse(500,`User not exist`,null);
  }
 }
-
 /// Delete contact
-async function getContacts(req,userInfo) {
+export async function getContacts(req,userInfo) {
   try {
            const apiMethod = "GET";
             // Validate headers and method
@@ -373,8 +305,7 @@ catch (err)
  }
 }
 
-
-async function getAllContacts(req,userInfo) {
+export async function getAllContacts(req,userInfo) {
   try {
            const apiMethod = "GET";
             // Validate headers and method
@@ -424,9 +355,7 @@ catch (err)
  }
 }
 
-
-
-async function getValidedContact(req,userInfo) {
+export async function getValidedContact(req,userInfo) {
   try {
            const apiMethod = "GET";
             // Validate headers and method
@@ -473,6 +402,45 @@ if (!data || data.length === 0) {
 const contact = data;
 console.log('Contact found:', contact);
 return returnResponse(200, 'Contact retrieved successfully.', contact);
+}
+catch (err) 
+{
+            console.error('Server error: new', err);
+            return returnResponse(500,`User not exist`,null);
+ }
+}
+
+
+export async function getAcountType(req,userInfo) {
+  try {
+           const apiMethod = "GET";
+            // Validate headers and method
+            const errors = validateHeaders(apiMethod,req.headers);
+            if (errors.length > 0) {
+              return returnResponse(400,JSON.stringify({ error: "Validation failed", details: errors }),null);
+            }
+
+const returnColumn = ['account_type','created_at','account_name'].join(', ');
+// Check if the email exists in the `users` table
+const { data, error } = await _supabase
+  .from('accountType')
+  .select(returnColumn).eq("is_deleted",false);
+
+if (error) {
+  console.error('Error checking contact:', error);
+  return returnResponse(500, `Error checking contact: ${error.message}`, null);
+}
+
+// Check for multiple rows and handle accordingly
+if (!data || data.length === 0) {
+  console.log('No contact found');
+  return returnResponse(404, 'No contact found', null);
+}
+
+// Single row returned
+const contact = data;
+console.log('Contact found:', contact);
+return returnResponse(200, 'Account type retrieved successfully.', contact);
 }
 catch (err) 
 {

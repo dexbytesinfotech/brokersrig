@@ -107,7 +107,7 @@ catch(error){
 }
 
       delete userData.id;
-      console.log('Phone number exists:', userData);
+      console.log('Phone number exists from web:', userData);
       return returnResponse(200,`Success`,userData);
     } 
     else {

@@ -13,6 +13,7 @@ import {addProject,addListing,getAllProjects,getProjectListing,addPaymentTerms,g
 
 import {userLogin,updateUserProfile,forgotPassword,getProfile,setPassword,changePassword,deleteAccount,registerUser,manageUserBusinessCard} from "../user/index.js";
 
+import {addContact,updateContact,deleteContact,getContacts,getAllContacts,getValidedContact,getAcountType} from "../contact_api/index.js";
 
 // Environment variables
 const _supabaseUrl = Deno.env.get('BASE_SUPABASE_URL');
@@ -77,8 +78,8 @@ const apiMappings = {
   "/developer/add": { method: "POST", handler: addDeveloper,validateUser:false},
   "/developer/get_developers": { method: "GET", handler: getDevelopers,validateUser:false},
   "/lead/add_follow_up": { method: "POST", handler: addLeadFollowUp},
-  "/lead/update_follow_up": { method: "POST", handler: addLeadFollowUp},
-  "/lead/get_all_follow_up": { method: "GET", handler: addLeadFollowUp},
+  "/lead/update_follow_up": { method: "POST", handler: updateLeadFollowUp},
+  "/lead/get_all_follow_up": { method: "GET", handler: getLeadAllFollowUps},
   "/lead/get_lead_type": { method: "GET", handler: getLeadType},
   "/lead/add_lead": { method: "POST", handler: addLead},
   "/lead/update_lead": { method: "POST", handler: updateLead},
@@ -89,6 +90,13 @@ const apiMappings = {
   "/lead/get_follow_up_details": { method: "GET", handler: getLeadFollowUpDetail},
   "/lead/get_matched_leads": { method: "GET", handler: getMatchedLeads},
 
+  "/contact/add": { method: "POST", handler: addContact},
+  "/contact/update": { method: "POST", handler: updateContact},
+  "/contact/delete": { method: "DELETE", handler: deleteContact},
+  "/contact/get_contacts": { method: "GET", handler: getContacts},
+  "/contact/get_all_contacts": { method: "GET", handler: getAllContacts},
+  "/contact/is_valid_contact": { method: "GET", handler: getValidedContact},
+  "/account_type/get_account_type": { method: "GET", handler: getAcountType},
 
   "/mobile_app_config/get_price_range": { method: "GET", handler: getPriceRange,validateUser:false},
   "/user_login": { method: "POST", handler: userLogin,validateUser:false},

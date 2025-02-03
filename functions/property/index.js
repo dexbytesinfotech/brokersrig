@@ -13,7 +13,18 @@ serve(async (req) => {
   try {
          const url = new URL(req.url);
          console.log("called API >>>> :", url);
-
+    // Handle OPTIONS Preflight Request
+    if (req.method === "OPTIONS") {
+      console.log("called API >>>> OPTIONS in:", url);
+      return new Response(null, {
+        status: 204, // No Content response
+        headers: {
+          "Access-Control-Allow-Origin": "*", // Allow all domains
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        },
+      });
+    }
             // Validate headers and method
   const validateError = validateEndPoint(req,['/property/get_property_type','/property/add_lead','/property/update_lead','/property/delete_lead','/property/get_leads']);
 
@@ -430,7 +441,7 @@ if (!data || data.length === 0) {
 
 // Single row returned
 const leads = data;
-console.log('Contact found:', leads);
+console.log('Contact found: >>>', leads);
 return returnResponse(200, 'Account type retrieved successfully.', leads);
 }
 catch (err) 
