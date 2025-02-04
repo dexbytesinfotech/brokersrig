@@ -80,14 +80,10 @@ if(('budget_code' in reqData || 'asking_price' in reqData)) {
          userData["budget_code"] = reqData["budget_code"];
        }
   }
- 
-  
-  if('lat' in reqData){
-  userData["lat"] = reqData["lat"];
-  }
-  
-  if('lng' in reqData){
+
+  if('lng' in reqData && 'lat' in reqData){
   userData["lng"] = reqData["lng"];
+  userData["lat"] = reqData["lat"];
   }
   
     
@@ -122,6 +118,27 @@ if(!(JSON.stringify(userData) === '{}')){
     console.error('Failed:', error);
     return returnResponse(500, `Failed: ${error.message}`, null);
   }
+
+  if('lng' in reqData && 'lat' in reqData){
+    // Calling the custom RPC function to get coordinates
+    const { data: coordinates, error: coordinatesError } = await _supabase
+    .rpc('set_coordinates', {
+      p_lat: userData["lng"],
+      p_lon: userData["lng"],
+      p_id:reqData['lead_id']
+    });
+
+  if (coordinatesError) {
+    // console.log(' coordinates error ####', coordinatesError);
+  }
+  else {
+    // console.log(' coordinates coordinates ****', coordinates); 
+    // userData["coordinates"] = coordinates;
+    // return returnResponse(200, `Success`, userData);
+  }
+}
+
+
 const leadDetails = data;
 const leadId = leadDetails['id'];
 console.log(' User information ***************** leadDetails > leadId 1 > ', leadId);
@@ -270,13 +287,27 @@ else{
      }
 }
 
-if('lat' in reqData){
+if('lat' in reqData && 'lng' in reqData){
+userData["lng"] = reqData["lng"];
 userData["lat"] = reqData["lat"];
+  // Calling the custom RPC function to get coordinates
+  const { data: coordinates, error: coordinatesError } = await _supabase
+    .rpc('set_coordinates', {
+      p_lat: userData["lng"],
+      p_lon: userData["lng"],
+      p_id:reqData['lead_id']
+    });
+
+  if (coordinatesError) {
+    // console.log(' coordinates error ####', coordinatesError);
+  }
+  else {
+    // console.log(' coordinates coordinates ****', coordinates); 
+    // userData["coordinates"] = coordinates;
+    // return returnResponse(200, `Success`, userData);
+  }
 }
 
-if('lng' in reqData){
-userData["lng"] = reqData["lng"];
-}
 
 if('preferred_location' in reqData){
   userData["preferred_location"] = reqData["preferred_location"];
@@ -306,6 +337,7 @@ userData,
 .eq('id', reqData['lead_id'])
 .select(`id`)
 .single();
+
 if (error) {
 console.error('Failed:', error);
 return returnResponse(500, `Failed: ${error.message}`, null);
@@ -313,6 +345,12 @@ return returnResponse(500, `Failed: ${error.message}`, null);
 var leadDetails = data;
 console.log(' User information ###################### leadDetails', leadDetails);
 
+try{
+
+}
+catch(error){
+  console.log(' Lead update error', error);
+}
 const { data: leadDetail, error: error1 }  = await asyncgetLeadDetails(reqData['lead_id']);
 if (error1) {
   console.error('Error fetching joined data:', error1);
@@ -656,7 +694,33 @@ break
 case 'rental': {searchLeadType = "Rent" ; }
 break
 }
+
 console.log(`Logged in user :${searchLeadType}`, userInfo.id);
+
+
+
+    // Calling the custom RPC function to get coordinates
+    const { data: coordinates, error: coordinatesError } = await _supabase
+    .rpc('get_nearby_locations', {
+      user_id:userInfo.id,
+      p_lat: 22.7336896,
+      p_lon: 75.8901166,
+      p_radius:1000,
+      property_type_title:propertyType,
+      search_lead_type_title:searchLeadType
+    });
+
+  if (coordinatesError) {
+    // console.log(' coordinates error ####', coordinatesError);
+    return returnResponse(500, `Failed `, coordinatesError);
+  }
+  else {
+    // console.log(' coordinates coordinates ****', coordinates); 
+    // userData["coordinates"] = coordinates;
+    return returnResponse(200, `Success`, userData);
+  }
+
+
 let query = _supabase
   .from('rUserLeads')
   .select(`
@@ -674,6 +738,13 @@ let query = _supabase
   .not('leads.leadType', 'is', null) // Exclude null leadType
   .not('leads.propertyType', 'is', null) // Exclude null propertyType
   .order('id', { ascending: false });
+
+  const radius = 1000;
+  const targetLng = 77.5946;
+  const targetLat = 12.9716;
+  query.filter('ST_DWithin(location, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)', 
+  [targetLng, targetLat, radius]
+);
 
 // Add the filter only if searchAddress has a value
 if ('search_location' in localReqData) {
@@ -734,7 +805,7 @@ else
 catch (err) 
 {
             console.error('Server error: new', err);
-            return returnResponse(500,`User not exist`,null);
+            return returnResponse(500,`Lead not found`,err);
  }
 }
 
