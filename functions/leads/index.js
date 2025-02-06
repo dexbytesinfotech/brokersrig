@@ -119,28 +119,30 @@ if(!(JSON.stringify(userData) === '{}')){
     return returnResponse(500, `Failed: ${error.message}`, null);
   }
 
-  if('lng' in reqData && 'lat' in reqData){
-    // Calling the custom RPC function to get coordinates
-    const { data: coordinates, error: coordinatesError } = await _supabase
-    .rpc('set_coordinates', {
-      p_lat: userData["lng"],
-      p_lon: userData["lng"],
-      p_id:reqData['lead_id']
-    });
-
-  if (coordinatesError) {
-    // console.log(' coordinates error ####', coordinatesError);
-  }
-  else {
-    // console.log(' coordinates coordinates ****', coordinates); 
-    // userData["coordinates"] = coordinates;
-    // return returnResponse(200, `Success`, userData);
-  }
-}
-
+  console.log(' coordinates befor adding ####', userData["lng"]);
 
 const leadDetails = data;
 const leadId = leadDetails['id'];
+
+if('lat' in userData && 'lng' in userData){
+    // Calling the custom RPC function to get coordinates
+    const { data: coordinates, error: coordinatesError } = await _supabase
+      .rpc('set_coordinates', {
+        p_lat: userData["lat"],
+        p_lon: userData["lng"],
+        p_id:leadId
+      });
+  
+    if (coordinatesError) {
+      // console.log(' coordinates error ####', coordinatesError);
+    }
+    else {
+       console.log(' coordinates coordinates ****', coordinates); 
+      // userData["coordinates"] = coordinates;
+      // return returnResponse(200, `Success`, userData);
+    }
+  }
+
 console.log(' User information ***************** leadDetails > leadId 1 > ', leadId);
 // Add lead in user lead refrence table
 if(!(leadDetails===null)){
@@ -293,7 +295,7 @@ userData["lat"] = reqData["lat"];
   // Calling the custom RPC function to get coordinates
   const { data: coordinates, error: coordinatesError } = await _supabase
     .rpc('set_coordinates', {
-      p_lat: userData["lng"],
+      p_lat: userData["lat"],
       p_lon: userData["lng"],
       p_id:reqData['lead_id']
     });
@@ -670,7 +672,7 @@ const missingKeys = validateRequredReqFields(reqData,['lead_type','property_type
     return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
   } 
 
-const localReqData = getFilteredReqData(reqData,['lead_type','property_type','search_location','city','min_budget','max_budget','sell_type','asking_price']);
+const localReqData = getFilteredReqData(reqData,['lead_type','property_type','search_location','city','min_budget','max_budget','sell_type','asking_price','lat','lng','radius']);
 const allowedLeadType = ['buy','sell','rent','rental','invest'];  
 var searchLeadType = localReqData['lead_type'];
 
@@ -695,19 +697,49 @@ case 'rental': {searchLeadType = "Rent" ; }
 break
 }
 
+const locationLat = 'lat' in localReqData?localReqData['lat']:0;
+const locationLng = 'lng' in localReqData?localReqData['lng']:0;
+const locationRadius = 'radius' in localReqData?localReqData['radius']:5000;
+
+let lowerBoundPrice = 0;
+let upperBoundPrice = 0;
+let isAskingPrice = false;
+
+if ('asking_price' in localReqData) {
+
+  let askingPrice = localReqData['asking_price'];
+
+  if(searchLeadType.toLowerCase()==="rental" || searchLeadType.toLowerCase()==="sell"){
+    const difference = (askingPrice * rangMinBudgetPer) / 100;
+     lowerBoundPrice = askingPrice - difference;
+     upperBoundPrice = askingPrice + difference;
+     isAskingPrice = true;
+    // query = query.gte('leads.asking_price', lowerBoundPrice)  // follow_up_date_time >= lowerBound
+    // .lte('leads.asking_price', upperBoundPrice);  // follow_up_date_time <= upperBound
+  }
+  else  if(searchLeadType.toLowerCase()==="rent" || searchLeadType.toLowerCase()==="buy"){
+    const difference = (askingPrice * rangMaxBudgetPer) / 100;
+     lowerBoundPrice = askingPrice - difference;
+     upperBoundPrice = askingPrice + difference;
+     isAskingPrice = false;
+    // query = query.gte('leads.max_budget', lowerBoundPrice)  // follow_up_date_time >= lowerBound
+    // .lte('leads.max_budget', upperBoundPrice);  // follow_up_date_time <= upperBound
+  }
+}
+
 console.log(`Logged in user :${searchLeadType}`, userInfo.id);
-
-
-
     // Calling the custom RPC function to get coordinates
-    const { data: coordinates, error: coordinatesError } = await _supabase
+    const { data: userData, error: coordinatesError } = await _supabase
     .rpc('get_nearby_locations', {
-      user_id:userInfo.id,
-      p_lat: 22.7336896,
-      p_lon: 75.8901166,
-      p_radius:1000,
+      u_id:userInfo.id,
+      p_lat: locationLat,
+      p_lon: locationLng,
+      p_radius:locationRadius,
       property_type_title:propertyType,
-      search_lead_type_title:searchLeadType
+      search_lead_type_title:searchLeadType,
+      p_min_price:lowerBoundPrice,  
+      p_max_price:upperBoundPrice,
+      is_asking_price:isAskingPrice 
     });
 
   if (coordinatesError) {
@@ -715,91 +747,92 @@ console.log(`Logged in user :${searchLeadType}`, userInfo.id);
     return returnResponse(500, `Failed `, coordinatesError);
   }
   else {
-    // console.log(' coordinates coordinates ****', coordinates); 
+     console.log(' coordinates coordinates ****', userData); 
     // userData["coordinates"] = coordinates;
-    return returnResponse(200, `Success`, userData);
-  }
-
-
-let query = _supabase
-  .from('rUserLeads')
-  .select(`
-    leads (
-      ${leadReturnColumn},contacts(${returnContactColumn}),
-      propertyType(title, property_type),
-      leadType(title, lead_type)
-    )
-  `)
-  .eq('is_deleted', false)
-  .eq('user_id', userInfo.id)
-  .eq('leads.is_deleted', false)
-  .eq('leads.propertyType.title', propertyType) // Correct field path
-  .eq('leads.leadType.title', searchLeadType) // Correct field path
-  .not('leads.leadType', 'is', null) // Exclude null leadType
-  .not('leads.propertyType', 'is', null) // Exclude null propertyType
-  .order('id', { ascending: false });
-
-  const radius = 1000;
-  const targetLng = 77.5946;
-  const targetLat = 12.9716;
-  query.filter('ST_DWithin(location, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)', 
-  [targetLng, targetLat, radius]
-);
-
-// Add the filter only if searchAddress has a value
-if ('search_location' in localReqData) {
-  query = query.ilike('leads.full_adress', `%${localReqData['search_location']}%`);
-                             
-}
-// Add the filter only if city has a value
-if ('city' in localReqData) {
-  query = query.ilike('leads.city', `%${localReqData['city']}%`);
-}
-
-// Add the filter only if city has a value
-if ('sell_type' in localReqData) {
-  query = query.ilike('leads.sell_type', `%${localReqData['sell_type']}%`);
-}
-
-// Add Price query for rental or rent case
-if ('asking_price' in localReqData) {
-
-  let askingPrice = localReqData['asking_price'];
-
-  if(searchLeadType.toLowerCase()==="rental" || searchLeadType.toLowerCase()==="sell"){
-    const difference = (askingPrice * rangMinBudgetPer) / 100;
-    let lowerBoundPrice = askingPrice - difference;
-    let upperBoundPrice = askingPrice + difference;
-    query = query.gte('leads.asking_price', lowerBoundPrice)  // follow_up_date_time >= lowerBound
-    .lte('leads.asking_price', upperBoundPrice);  // follow_up_date_time <= upperBound
-  }
-  else  if(searchLeadType.toLowerCase()==="rent" || searchLeadType.toLowerCase()==="buy"){
-    const difference = (askingPrice * rangMaxBudgetPer) / 100;
-    let lowerBoundPrice = askingPrice - difference;
-    let upperBoundPrice = askingPrice + difference;
-    query = query.gte('leads.max_budget', lowerBoundPrice)  // follow_up_date_time >= lowerBound
-    .lte('leads.max_budget', upperBoundPrice);  // follow_up_date_time <= upperBound
-  }
-}
-
-const { data: data1, error: error1 } = await query;
-
-if (error1) {
-  console.error('Error fetching joined data:', error1);
-} else {
-  console.log('Joined data:', data1);
-}
-
-console.log('propertyType found: >>> ', {"propertyType":propertyType,data:data1});
-
-if(data1!=null && data1.length>0){
-  const leadList = data1.map((item) => item.leads).filter((lead) => lead != null);
-  return returnResponse(200, 'Success',  {"propertyType":propertyType, "searchLeadType":searchLeadType,data:leadList} );
+ if(userData['result']!=null && userData['result'].length>0){
+ 
+  return returnResponse(200, `Success`, userData['result']);
 }
 else
 {
   return returnResponse(400, 'No data found', []);
 }
+    // return returnResponse(200, `Success`, userData['result']);
+  }
+
+
+// let query = _supabase
+//   .from('rUserLeads')
+//   .select(`
+//     leads (
+//       ${leadReturnColumn},contacts(${returnContactColumn}),
+//       propertyType(title, property_type),
+//       leadType(title, lead_type)
+//     )
+//   `)
+//   .eq('is_deleted', false)
+//   .eq('user_id', userInfo.id)
+//   .eq('leads.is_deleted', false)
+//   .eq('leads.propertyType.title', propertyType) // Correct field path
+//   .eq('leads.leadType.title', searchLeadType) // Correct field path
+//   .not('leads.leadType', 'is', null) // Exclude null leadType
+//   .not('leads.propertyType', 'is', null) // Exclude null propertyType
+//   .order('id', { ascending: false });
+
+// // Add the filter only if searchAddress has a value
+// if ('search_location' in localReqData) {
+//   query = query.ilike('leads.full_adress', `%${localReqData['search_location']}%`);
+                             
+// }
+// // Add the filter only if city has a value
+// if ('city' in localReqData) {
+//   query = query.ilike('leads.city', `%${localReqData['city']}%`);
+// }
+
+// // Add the filter only if city has a value
+// if ('sell_type' in localReqData) {
+//   query = query.ilike('leads.sell_type', `%${localReqData['sell_type']}%`);
+// }
+
+// // Add Price query for rental or rent case
+// if ('asking_price' in localReqData) {
+
+//   let askingPrice = localReqData['asking_price'];
+
+//   if(searchLeadType.toLowerCase()==="rental" || searchLeadType.toLowerCase()==="sell"){
+//     const difference = (askingPrice * rangMinBudgetPer) / 100;
+//     let lowerBoundPrice = askingPrice - difference;
+//     let upperBoundPrice = askingPrice + difference;
+//     query = query.gte('leads.asking_price', lowerBoundPrice)  // follow_up_date_time >= lowerBound
+//     .lte('leads.asking_price', upperBoundPrice);  // follow_up_date_time <= upperBound
+//   }
+//   else  if(searchLeadType.toLowerCase()==="rent" || searchLeadType.toLowerCase()==="buy"){
+//     const difference = (askingPrice * rangMaxBudgetPer) / 100;
+//     let lowerBoundPrice = askingPrice - difference;
+//     let upperBoundPrice = askingPrice + difference;
+//     query = query.gte('leads.max_budget', lowerBoundPrice)  // follow_up_date_time >= lowerBound
+//     .lte('leads.max_budget', upperBoundPrice);  // follow_up_date_time <= upperBound
+//   }
+// }
+
+// const { data: data1, error: error1 } = await query;
+
+// if (error1) {
+//   console.error('Error fetching joined data:', error1);
+// } else {
+//   console.log('Joined data:', data1);
+// }
+
+// console.log('propertyType found: >>> ', {"propertyType":propertyType,data:data1});
+
+// if(data1!=null && data1.length>0){
+//   const leadList = data1.map((item) => item.leads).filter((lead) => lead != null);
+//   return returnResponse(200, 'Success',  {"propertyType":propertyType, "searchLeadType":searchLeadType,data:leadList} );
+// }
+// else
+// {
+//   return returnResponse(400, 'No data found', []);
+// }
 
 }
 catch (err) 
