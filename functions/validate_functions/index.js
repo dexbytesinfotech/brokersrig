@@ -9,14 +9,14 @@ export function validateHeaders(method,headers) {
   }
   // Check Content-Type header
   const contentType = headers.get("content-type");
-  // console.log("userInfo >>************ * * >> 000000$$$ :", contentType);
+  // customLog("userInfo >>************ * * >> 000000$$$ :", contentType);
   if (!contentType || !["application/json", "application/json; charset=utf-8"].includes(contentType)) {
     errors.push("Invalid or missing Content-Type. Expected 'application/json'.");
   }
   // Check Authorization header
   const authorization = headers.get("authorization");
   if (!authorization || !authorization.startsWith("Bearer ")) {
-    // console.log("userInfo >>************ * * >> 2222 :", authorization);
+    // customLog("userInfo >>************ * * >> 2222 :", authorization);
     errors.push("Missing or invalid Authorization header. Expected 'Bearer <token>'.");
   }
   // Add additional header validations if necessary
@@ -29,14 +29,14 @@ export function validateMethods(method,headers) {
   const errors = [];
   // Validate HTTP method
   if (!["post", "get","delete"].includes(method.toLowerCase())) {
-    // console.log("userInfo >>************ * * >> 0000 :", method);
+    // customLog("userInfo >>************ * * >> 0000 :", method);
     errors.push(`Invalid HTTP method. Expected 'POST' or 'GET', but received '${method}'.`);
   }
 
   // Check Content-Type header
   const contentType = headers.get("content-type");
   if (!contentType || !["application/json", "application/json; charset=utf-8"].includes(contentType)) {
-    // console.log("userInfo >>************ * * >> 1111000 :", contentType);
+    // customLog("userInfo >>************ * * >> 1111000 :", contentType);
     errors.push("Invalid or missing Content-Type. Expected 'application/json'.");
   }
 
@@ -61,21 +61,21 @@ export function validateEndPoint(req,endPointNames = []) {
 
     const url = new URL(req.url);
     const pathName = url.pathname;
-    // console.log("userInfo >>************ * * pathName >> 1111 :", pathName);
+    // customLog("userInfo >>************ * * pathName >> 1111 :", pathName);
     // Check if the request URL matches any of the endpoint names
     if (endPointNames.some(endpoint => pathName.includes(endpoint))) {
    
       result = pathName;
-      // console.log("userInfo >>************ * * pathName >> 2222 :", result);
+      // customLog("userInfo >>************ * * pathName >> 2222 :", result);
       //errors.push(`Invalid endpoint: ${pathName}`);
     }
     // if(!url.includes(endPointNames)){
-    //   console.log("userInfo >>************ * * >> 0000 :", method);
+    //   customLog("userInfo >>************ * * >> 0000 :", method);
     //   errors.push(`Invalid end API point`);
     // }
   // Add additional header validations if necessary
 
-  console.log("userInfo >>************ * * pathName >> 3333 :", result);
+  customLog("userInfo >>************ * * pathName >> 3333 :", result);
   return result;
 }
 
@@ -92,6 +92,7 @@ export function getHeaderAuthorization(headers) {
 }
 
 export async function getApiRequest(req, method) {
+  const url = new URL(req.url);
   var reqData = null;
   // Validate HTTP method
   if (["post", "get","delete"].includes(method.toLowerCase())) {
@@ -104,7 +105,7 @@ case 'post':{
 
 case 'get':{
   const url = new URL(req.url);
-  // console.log("called API >>>> :", url);
+  // customLog("called API >>>> :", url);
   reqData = url.searchParams;
   break ;
 }
@@ -116,6 +117,7 @@ case 'delete':{
 
 }
 }
+customLog(`api requested data > > (${url} )`, reqData);
 return reqData;
 }
 
@@ -128,21 +130,21 @@ return reqData;
  */
 export function validateRequredReqFields(data, keysToExclude = []) {
 
-  console.log(' data   > > >  >', data);
+  customLog(' data   > > >  >', data);
  
   if (data instanceof URLSearchParams) {
-    // console.log(' data   > > >  > 000 ' , data);
+    // customLog(' data   > > >  > 000 ' , data);
 // Get all values
 const allParams = {};
 try{
   for (const [key, value] of data.entries()) {
     allParams[key] = value;
   }
-  // console.log(' data   > > >  > 111 ', allParams);
+  // customLog(' data   > > >  > 111 ', allParams);
     data =  allParams;
 }
 catch(error){
-  console.log(' data   > > >  >', data);
+  customLog(' data   > > >  >', data);
 }
   }
 
@@ -160,25 +162,25 @@ catch(error){
   const filteredData = Object.fromEntries(
     Object.entries(data).filter(([key]) => !keysToExclude.includes(key))
   );
-  // console.log(' data   > >  00 0 >  >', data);
+  // customLog(' data   > >  00 0 >  >', data);
   return { data, missingKeys: [] }; // No missing keys
 }
 
 //, optionalKeysToExclude = []
 export function getFilteredReqData(data, keysToExclude = []) {
   if (data instanceof URLSearchParams) {
-    // console.log(' data   > > >  > 000 ' , data);
+    // customLog(' data   > > >  > 000 ' , data);
 // Get all values
 const allParams = {};
 try{
   for (const [key, value] of data.entries()) {
     allParams[key] = value;
   }
-  // console.log(' data   > > >  > 111 ', allParams);
+  // customLog(' data   > > >  > 111 ', allParams);
     data =  allParams;
 }
 catch(error){
-  console.log(' data   > > >  >', data);
+  customLog(' data   > > >  >', data);
 }
   }
   // Filter out excludeKeys from the object if all keys exist
@@ -236,15 +238,18 @@ export function getMinMaxPriceFromBudgetCode(budgetCode) {
 
 
 export function getPriceFromString(priceStr) {
-  const regex = /(\d+)\s*([a-zA-Z]+)/; // Matches a number followed by optional space and unit
+  // Matches a number followed by optional space and unit
+  // const regex = /(\d+)\s*([a-zA-Z]+)/; 
+  const regex = /(\d+(\.\d+)?)\s*([a-zA-Z]+)/;
+
   const match = priceStr.match(regex);
 
   if (!match) {
     throw new Error('Invalid price format');
   }
 
-  const amount = parseInt(match[1], 10);
-  const unit = match[2].toLowerCase();
+  const amount = match[1];//parseInt(match[0], 10);
+  const unit = match[3].toLowerCase();
 
   let maxValue = amount;
 
@@ -260,6 +265,8 @@ export function getPriceFromString(priceStr) {
   else if (unit === 'lc' || unit === 'c') {
     maxValue = amount * 10000000; // Crores
   }
+
+  customLog(`PriceFromString convert #### ${match} <> ${priceStr}` , [maxValue, unit]);
 
   return [maxValue, unit];
 }
@@ -284,6 +291,10 @@ export function generateUniqueIntId(options = {}) {
   return parseInt(timestamp.toString().slice(-sliceLength) + randomPart); // Combine sliced timestamp with random part
 }
 
+
+export function customLog(message, ...optionalParams) {
+  console.log(`custom log ${message}`, ...optionalParams);
+}
 
 function getFixedLengthRandomNumber(length) {
   const min = Math.pow(10, length - 1); // Smallest number with the given length

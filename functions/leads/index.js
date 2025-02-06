@@ -1,6 +1,6 @@
 import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
 import { returnResponse } from "../response_formatter_js/index.js";// Assuming this module exports `returnResponse`
-import { validateHeaders, getHeaderAuthorization,validateEndPoint,getApiRequest,getMinMaxPriceFromBudgetCode,getPriceFromString,generateUniqueIntId,validateRequredReqFields,getFilteredReqData,formatNumber} from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
+import { validateHeaders, getHeaderAuthorization,validateEndPoint,getApiRequest,getMinMaxPriceFromBudgetCode,getPriceFromString,generateUniqueIntId,validateRequredReqFields,getFilteredReqData,formatNumber,customLog} from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
 
 // import { notifyToAllFollowUps } from "../pg_notify_cron_schedule/index.js";// Assuming this module exports `returnResponse`
 
@@ -27,8 +27,6 @@ export async function addLead(req,userInfo) {
            const apiMethod = "POST";
 /// Get data from API
 const reqData = await getApiRequest(req,apiMethod);
-
- console.log(' User information ######################', userInfo);
  const missingKeys = validateRequredReqFields(reqData,['property_type','lead_type','contact_id']);
  if (missingKeys['missingKeys'].length > 0) {
    console.error('Please enter mandatory fields data', "error");
@@ -104,7 +102,6 @@ if(('budget_code' in reqData || 'asking_price' in reqData)) {
   }
 
 }
-console.log(' User information ###################### userData', userData);
 // Check if the email exists in the `users` table
 if(!(JSON.stringify(userData) === '{}')){
   const { data, error } = await _supabase
@@ -119,8 +116,6 @@ if(!(JSON.stringify(userData) === '{}')){
     return returnResponse(500, `Failed: ${error.message}`, null);
   }
 
-  console.log(' coordinates befor adding ####', userData["lng"]);
-
 const leadDetails = data;
 const leadId = leadDetails['id'];
 
@@ -134,16 +129,10 @@ if('lat' in userData && 'lng' in userData){
       });
   
     if (coordinatesError) {
-      // console.log(' coordinates error ####', coordinatesError);
-    }
-    else {
-       console.log(' coordinates coordinates ****', coordinates); 
-      // userData["coordinates"] = coordinates;
-      // return returnResponse(200, `Success`, userData);
+      customLog(' coordinates error ####', coordinatesError);
     }
   }
 
-console.log(' User information ***************** leadDetails > leadId 1 > ', leadId);
 // Add lead in user lead refrence table
 if(!(leadDetails===null)){
   const { data, error } = await _supabase
@@ -176,7 +165,6 @@ if(!(leadDetails===null)){
     return returnResponse(500, `Failed: ${error.message}`, null);
   }
 }
-console.log(' User information ***************** leadDetails > leadId > ', data);
 const { data: leadDetail, error: error1 }  = await asyncgetLeadDetails(leadId);
 if (error1) {
   console.error('Error fetching joined data:', error1);
@@ -225,13 +213,12 @@ if (error) {
   return returnResponse(500, `Error checking email: ${error.message}`, null);
 }
 
-console.log(' User information ######################  data', data);
+
 
 if (data===null) {
   console.error('Lead not found:', error);
   return returnResponse(500, `Lead not found.`, null);
 }
-console.log(' User information ######################', userInfo);
 
 const userData = {};
 
@@ -301,12 +288,7 @@ userData["lat"] = reqData["lat"];
     });
 
   if (coordinatesError) {
-    // console.log(' coordinates error ####', coordinatesError);
-  }
-  else {
-    // console.log(' coordinates coordinates ****', coordinates); 
-    // userData["coordinates"] = coordinates;
-    // return returnResponse(200, `Success`, userData);
+    customLog(' coordinates error ####', coordinatesError);
   }
 }
 
@@ -328,7 +310,6 @@ userData["country_code"] = reqData["country_code"];
 }
 
 }
-console.log(' User information ###################### userData', userData);
 // Check if the email exists in the `users` table
 if(!(JSON.stringify(userData) === '{}')){
 const { data, error } = await _supabase
@@ -344,15 +325,7 @@ if (error) {
 console.error('Failed:', error);
 return returnResponse(500, `Failed: ${error.message}`, null);
 }
-var leadDetails = data;
-console.log(' User information ###################### leadDetails', leadDetails);
 
-try{
-
-}
-catch(error){
-  console.log(' Lead update error', error);
-}
 const { data: leadDetail, error: error1 }  = await asyncgetLeadDetails(reqData['lead_id']);
 if (error1) {
   console.error('Error fetching joined data:', error1);
@@ -382,7 +355,6 @@ export async function deleteLead(req,userInfo) {
            const apiMethod = "DELETE";
 /// Get data from API
 const reqData = await getApiRequest(req,apiMethod);
-console.log(' User information ######################  reqData', reqData);
 if (reqData["id"]<= 0) {
   return returnResponse(400,"Unathoried user",null);
 }
@@ -402,13 +374,11 @@ if (error) {
   console.error('Error checking leads:', error);
   return returnResponse(500, `Error checking email: ${error.message}`, null);
 }
-console.log(' User information ######################  data', data);
 
 if (data===null) {
   console.error('Contact already added:', error);
   return returnResponse(500, `Selected data not found..`, null);
 }
-console.log(' User information ######################', userInfo);
 
 const userData = {"is_deleted":true};
 
@@ -466,13 +436,12 @@ if (error) {
 
 // Check for multiple rows and handle accordingly
 if (!data || data.length === 0) {
-  console.log('No leads found');
+  customLog('No leads found');
   return returnResponse(404, 'No leads found', null);
 }
 
 // Single row returned
 const leads = data;
-console.log('Contact found:', leads);
 return returnResponse(200, 'Account type retrieved successfully.', leads);
 }
 catch (err) 
@@ -497,13 +466,7 @@ const { data: data1, error: error1 } = await _supabase
 
 if (error1) {
   console.error('Error fetching joined data:', error1);
-} else {
-  console.log('Joined data:', data1);
-}
-
-// // Single row returned
-// const leads = leadsData;
-console.log('Contact found:', data1);
+} 
 
 if(data1!=null && data1.length>0){
   const leadList = data1.map((item) => item.leads).filter((lead) => lead != null);
@@ -528,9 +491,6 @@ export async function getContactLeads(req,userInfo) {
            const apiMethod = "GET";
 
  const reqData = await getApiRequest(req,apiMethod);
-console.log('Requested mobile:', reqData);
-console.log('Requested mobile >>>  :', reqData.get("contact_id"));
-
 if(reqData["contact_id"]<= 0 ){
   return returnResponse(400,"Contact id Reqired",null);
 }
@@ -547,13 +507,7 @@ const { data: data1, error: error1 } = await _supabase
 
 if (error1) {
   console.error('Error fetching joined data:', error1);
-} else {
-  console.log('Joined data:', data1);
-}
-
-// // Single row returned
-// const leads = leadsData;
-console.log('Contact found:', data1);
+} 
 
 if(data1!=null && data1.length>0){
   const leadList = data1.map((item) => item.leads).filter((lead) => lead != null);
@@ -577,9 +531,7 @@ export async function getLeadDetails(req,userInfo) {
   try {
            const apiMethod = "GET";
             const reqData = await getApiRequest(req,apiMethod);
-            console.log('Requested mobile:', reqData);
-            console.log('Requested mobile >>>  :', reqData.get("lead_id"));
-     
+
             const { data: leadDetail, error: error1 }  = await asyncgetLeadDetails(reqData.get("lead_id"));
             if (error1) {
               console.error('Error fetching joined data:', error1);
@@ -652,7 +604,7 @@ if(error){
   console.error('budgetCode error >>>> ', error);
 return "";
 }
-console.log('budgetCode data >>>> ', data);
+
 if(data!=null){
   return data["title"];
 }
@@ -727,7 +679,6 @@ if ('asking_price' in localReqData) {
   }
 }
 
-console.log(`Logged in user :${searchLeadType}`, userInfo.id);
     // Calling the custom RPC function to get coordinates
     const { data: userData, error: coordinatesError } = await _supabase
     .rpc('get_nearby_locations', {
@@ -743,15 +694,12 @@ console.log(`Logged in user :${searchLeadType}`, userInfo.id);
     });
 
   if (coordinatesError) {
-    // console.log(' coordinates error ####', coordinatesError);
-    return returnResponse(500, `Failed `, coordinatesError);
+    customLog(' coordinates error ####', coordinatesError);
+    // return returnResponse(500, `Failed `, coordinatesError);
   }
   else {
-     console.log(' coordinates coordinates ****', userData); 
-    // userData["coordinates"] = coordinates;
  if(userData['result']!=null && userData['result'].length>0){
- 
-  return returnResponse(200, `Success`, userData['result']);
+   return returnResponse(200, `Success`, userData['result']);
 }
 else
 {
@@ -819,11 +767,7 @@ else
 
 // if (error1) {
 //   console.error('Error fetching joined data:', error1);
-// } else {
-//   console.log('Joined data:', data1);
-// }
-
-// console.log('propertyType found: >>> ', {"propertyType":propertyType,data:data1});
+// } 
 
 // if(data1!=null && data1.length>0){
 //   const leadList = data1.map((item) => item.leads).filter((lead) => lead != null);
@@ -870,8 +814,6 @@ export async function addLeadFollowUp(req,userInfo){
   {
 /// Get data from API
 const reqData = await getApiRequest(req,"POST");
-console.log(' User information ######################', userInfo);
-
   const missingKeys = validateRequredReqFields(reqData,['lead_id','contact_id','lead_status','lead_status_option','follow_up_date_time','follow_up_category']);
   if (missingKeys['missingKeys'].length > 0) {
     console.error('Please enter mandatory fields data', "error");
@@ -879,8 +821,7 @@ console.log(' User information ######################', userInfo);
   }
 
       const localReqData = getFilteredReqData(reqData,['lead_id','contact_id','lead_status','lead_status_option','follow_up_remark','follow_up_date_time','follow_up_category']);
-     console.log(' Add Lead followup information ###################### localReqData', localReqData);
-     const followupId = generateUniqueIntId({length : 4 ,sliceLength : 6});
+    const followupId = generateUniqueIntId({length : 4 ,sliceLength : 6});
      localReqData['follow_up_id'] = followupId;
      localReqData['user_id'] = userInfo['id'];
 
@@ -902,7 +843,6 @@ console.log(' User information ######################', userInfo);
      localReqData['assigned_id'] = assignId;
      const timestamp = localReqData['follow_up_date_time'];
      localReqData['follow_up_date_time'] = new Date(timestamp).toISOString();
-     console.log(' User information ###################### leadDetails >> ', localReqData);
       const { data, error } = await _supabase
       .from('follow_up')
       .insert(
@@ -914,7 +854,6 @@ console.log(' User information ######################', userInfo);
         console.error('Failed:', error);
         return returnResponse(500, `Followup add Failed: ${error.message}`, null);
       }
-    console.log(' User information ###################### leadDetails >> ', data);
     // Add lead in user lead refrence table
     if(!(data===null)){
       return returnResponse(200, 'Success', data);
@@ -933,8 +872,6 @@ export async function updateLeadFollowUp(req,userInfo){
     //  return await notifyToAllFollowUps();
 /// Get data from API
 const reqData = await getApiRequest(req,"POST");
-console.log(' User information ######################', userInfo);
-
   const missingKeys = validateRequredReqFields(reqData,['follow_up_id']);
   if (missingKeys['missingKeys'].length > 0) {
     console.error('Please enter mandatory fields data', "error");
@@ -962,7 +899,6 @@ console.log(' User information ######################', userInfo);
         console.error('Failed:', error);
         return returnResponse(500, `Followup add Failed: ${error.message}`, null);
       }
-    console.log(' User information ###################### leadDetails >> ', data);
     // Add lead in user lead refrence table
     if(!(data===null)){
       return returnResponse(200, 'Success', data);
@@ -982,7 +918,6 @@ export async function getLeadFollowUpDetail(req,userInfo){
   {
 /// Get data from API
 const reqData = await getApiRequest(req,"GET");
-console.log(' User information ######################', userInfo);
 
   const missingKeys = validateRequredReqFields(reqData,['follow_up_id']);
   if (missingKeys['missingKeys'].length > 0) {
@@ -1008,7 +943,6 @@ console.log(' User information ######################', userInfo);
         console.error('Failed:', error);
         return returnResponse(500, `Followup add Failed: ${error.message}`, null);
       }
-    console.log(' User information ###################### leadDetails >> ', data);
     // Add lead in user lead refrence table
     if(!(data===null)){
       return returnResponse(200, 'Success', data);
@@ -1028,18 +962,12 @@ export async function getLeadAllFollowUps(req,userInfo){
       const reqData = await getApiRequest(req,"GET");
 
       const localReqData = getFilteredReqData(reqData,['lead_id','follow_up_date_time','item_limit']);
-      console.log(' List Lead Foloup### localReqData', localReqData);
-
       const userId = userInfo['id'] ?? null; // Use null if undefined
       const leadId = localReqData['lead_id'] ?? null; // Use null if undefined
       const itemLimit = localReqData['item_limit']??50;
       const dateTime = localReqData['follow_up_date_time'] ?? null; // Use null if undefined
       const date = (!(dateTime===null) && !(dateTime===""))?new Date(Number(dateTime)).toISOString().split('T')[0] : null;
-      // Format the date to YYYY-MM-DD
-      console.log(' date only check #######', date);
       var dataList = [];
-      var orQueryList = [];
-
       let query = _supabase
       .from('follow_up')
       .select(`${returnFollowUpColumn},usersProfile(${['user_id', 'first_name'].join(', ')}),contacts(${['first_name','last_name','phone'].join(', ')})`)
