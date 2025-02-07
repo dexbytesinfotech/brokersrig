@@ -9,9 +9,9 @@ import {getPriceRange,addMediaFile,deleteMediaFile} from "../mobile_app_config/i
 import {getDevelopers,addDeveloper} from "../developers/index.js";
 import {addLeadFollowUp,getLeadAllFollowUps,getLeadFollowUpDetail,updateLeadFollowUp,getMatchedLeads,  getLeadType,addLead,updateLead,deleteLead,getLeads,getLeadDetails,getContactLeads} from "../leads/index.js";
 
-import {addProject,addListing,getAllProjects,getProjectListing,addPaymentTerms,getProjectDetail,addProjectAdditionalDetails,addProjectMediaFile,deleteProjectMediaFile} from "../project/index.js";
+import {addProject,addListing,getAllProjects,getProjectListing,addPaymentTerms,searchProject,getProjectDetail,addProjectAdditionalDetails,addProjectMediaFile,deleteProjectMediaFile} from "../project/index.js";
 
-import {userLogin,updateUserProfile,forgotPassword,getProfile,setPassword,changePassword,deleteAccount,registerUser,manageUserBusinessCard} from "../user/index.js";
+import {userLogin,loginOut,updateUserProfile,forgotPassword,getProfile,setPassword,changePassword,deleteAccount,registerUser,manageUserBusinessCard} from "../user/index.js";
 
 import {addContact,updateContact,deleteContact,getContacts,getAllContacts,getValidedContact,getAcountType} from "../contact_api/index.js";
 
@@ -66,7 +66,7 @@ const apiMappings = {
   "/delete_business_card": { method: "DELETE", handler: manageUserBusinessCard,subAction: "deleteCard"},
   "/change_password": { method: "POST", handler: changePassword},
   "/delete_account": { method: "DELETE", handler: deleteAccount},
-  "/project/add": { method: "POST", handler: returnResponse},
+  "/project/add": { method: "POST", handler: addProject},
   "/project/add_listing": { method: "POST", handler: addListing},
   "/project/get_listing": { method: "POST", handler: getProjectListing},
   "/project/get_projects": { method: "POST", handler: getAllProjects},
@@ -75,6 +75,7 @@ const apiMappings = {
   "/project/add_project_media": { method: "POST", handler: addProjectMediaFile},
   "/project/delet_project_media": { method: "DELETE", handler: deleteProjectMediaFile},
   "/project/project_details": { method: "GET", handler: getProjectDetail},
+  "/project/project_search": { method: "GET", handler: searchProject},
   "/developer/add": { method: "POST", handler: addDeveloper,validateUser:false},
   "/developer/get_developers": { method: "GET", handler: getDevelopers,validateUser:false},
   "/lead/add_follow_up": { method: "POST", handler: addLeadFollowUp},
@@ -90,6 +91,7 @@ const apiMappings = {
   "/lead/get_follow_up_details": { method: "GET", handler: getLeadFollowUpDetail},
   "/lead/get_matched_leads": { method: "GET", handler: getMatchedLeads},
 
+  "/user_loginout": { method: "POST", handler: loginOut},
   "/contact/add": { method: "POST", handler: addContact},
   "/contact/update": { method: "POST", handler: updateContact},
   "/contact/delete": { method: "DELETE", handler: deleteContact},
@@ -97,6 +99,7 @@ const apiMappings = {
   "/contact/get_all_contacts": { method: "GET", handler: getAllContacts},
   "/contact/is_valid_contact": { method: "GET", handler: getValidedContact},
   "/account_type/get_account_type": { method: "GET", handler: getAcountType},
+  
 
   "/mobile_app_config/get_price_range": { method: "GET", handler: getPriceRange,validateUser:false},
   "/user_login": { method: "POST", handler: userLogin,validateUser:false},

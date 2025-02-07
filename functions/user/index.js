@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
 import { returnResponse } from "../response_formatter_js/index.js";// Assuming this module exports `returnResponse`
-import { validateHeaders, getApiRequest,getMinMaxPriceFromBudgetCode,getPriceFromString,generateUniqueIntId , isValidEmail,validateMethods} from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
+import { validateHeaders, getApiRequest,getMinMaxPriceFromBudgetCode,getPriceFromString,generateUniqueIntId , isValidEmail,validateMethods,customLog} from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
 import {createCustomJWT, verifyJWT } from "../jwt_auth/index.js";
 import { sendEmail } from "../send_email/index.js";// Assuming this module exports `returnResponse`
 
@@ -40,10 +40,7 @@ const reqData = await getApiRequest(req,"POST");
 if (reqData["lead_id"]<= 0) {
   return returnResponse(400,"Lead id mandatory",null);
 }
-    // Extract request body
-    // const payload = await req.json();
-    console.log('Incoming Payload:', reqData);
-    
+
     // Extract phone_number from payload
     const { email,password,device_fcm_token} = reqData; // Ensure the payload has a property named phone_number
 
@@ -57,8 +54,6 @@ if (reqData["lead_id"]<= 0) {
       .eq('password', password)
       .eq('is_deleted', false)
       .maybeSingle();
-
-   console.log('Retrive data:', data);
 
     if (error) {
       console.error('Error checking phone number:', error);
@@ -107,12 +102,9 @@ catch(error){
 }
 
       delete userData.id;
-      console.log('Phone number exists from web:', userData);
       return returnResponse(200,`Success`,userData);
     } 
     else {
- // Phone number does not exist
-      console.log('User not Exist in db');
       return returnResponse(200,`Please enter correct login details`,null);
     }
     
@@ -146,12 +138,8 @@ if('country' in reqData){
   userData["country"] = reqData["country"];
 }
 
-
-console.log("userData >>>> 0 :", userData);
-
 // Check if the email exists in the `users` table
 if(!(JSON.stringify(userData) === '{}')){
-  console.log("userData >>>> 01 :", userData);
   const { data, error } = await _supabase
   .from('users')
   .update(userData)
@@ -189,7 +177,6 @@ if('country' in reqData){
   userProfileData["photo"] = reqData["photo"];
  }
 
- console.log("userInfo userProfileData >>>> :", userProfileData);
 
  // Check if the email exists in the `users` table
  if(!(JSON.stringify(userProfileData) === '{}')){
@@ -224,7 +211,6 @@ export async function forgotPassword(req){
   try {
 const reqData = await getApiRequest(req,"POST");
 
-console.log("userInfo >>>> :", reqData);
 if(!('email' in reqData) || !isValidEmail(reqData["email"])){
   return returnResponse(400,JSON.stringify({ error: "Please enter valid email"}),null);
 }
@@ -276,7 +262,6 @@ catch (err) {
     return returnResponse(500, `Email not found: ${error.message}`, null);
   }
  
- console.log("userInfo userProfileData >>>> :", data);
 
 return returnResponse(200, `Otp send syccessfully on email`,null);
 
@@ -322,7 +307,6 @@ export async function setPassword(req){
 
 const reqData = await getApiRequest(req,"POST");
 
-console.log("userInfo >>>> :", reqData);
 if((!('email' in reqData) || !isValidEmail(reqData["email"]) || (!('otp' in reqData) || reqData["otp"].length<4))  || (!('password' in reqData) || reqData["password"].length<4)){
   return returnResponse(400,JSON.stringify({ error: "Please enter valid email and OTP "}),null);
 }
@@ -366,7 +350,6 @@ catch (err) {
     console.error('Error checking email:', error);
     return returnResponse(500, `Email not found: ${error.message}`, null);
   }
- console.log("userInfo userProfileData >>>> :", data);
 return returnResponse(200, `Password changed successfully`,null);
 } catch (err) {
 console.error('Server error:', err);
@@ -377,7 +360,6 @@ return returnResponse(500,`User not exist`,null);
 export async function changePassword(req,userInfo){
   try {
 const reqData = await getApiRequest(req,"POST");
-console.log("userInfo >>>> :", reqData);
 if((!('email' in reqData) || !isValidEmail(reqData["email"]) || (!('password' in reqData) || reqData["password"].length<4)|| (!('old_password' in reqData) || reqData["old_password"].length<4))  || (!('password' in reqData) || reqData["password"].length<4)){
   return returnResponse(400,JSON.stringify({ error: "Please enter valid email and old password "}),null);
 }
@@ -407,7 +389,6 @@ console.error('User Details', data1);
     console.error('Error checking email:', error);
     return returnResponse(500, `${error.message}`, null);
   }
- console.log("userInfo userProfileData >>>> :", data);
 return returnResponse(200, `Password changed successfully`,null);
 } catch (err) {
 console.error('Server error:', err);
@@ -419,7 +400,6 @@ export async function deleteAccount(req,userInfo){
   try {
 const reqData = await getApiRequest(req,"DELETE");
 
-console.log("userInfo >>>> :", reqData);
 if(!('email' in reqData) || !isValidEmail(reqData["email"])){
   return returnResponse(400,JSON.stringify({ error: "Please enter valid email and OTP "}),null);
 }
@@ -434,7 +414,6 @@ if (error1) {
   console.error('Error checking email:', error1);
   return returnResponse(500, `Detail not `, null);
 }
- console.log("userInfo userProfileData >>>> :", data1);
 return returnResponse(200, `Account deleted successfully`,null);
 } catch (err) {
 console.error('Server error:', err);
@@ -450,9 +429,6 @@ const reqData = await getApiRequest(req,"POST");
 if (reqData["lead_id"]<= 0) {
   return returnResponse(400,"Lead id mandatory",null);
 }
-    // Extract request body
-    // const payload = await req.json();
-    console.log('Incoming Payload:', reqData);
     // Extract details from payload
     const { email, password, first_name, last_name, account_type } = reqData;
 
@@ -471,7 +447,6 @@ if (reqData["lead_id"]<= 0) {
 
     // If data is found, email already exists
     if (data != null) {
-      console.log('Email already exists:', data);
       return returnResponse(200, `User already exists`, null);
     }
 
@@ -497,7 +472,7 @@ if (reqData["lead_id"]<= 0) {
       });
     }
 
-    console.log('User registered successfully');
+    // customLog('User registered successfully');
     const userId = userData[0].id;
 
     // Insert data into the `usersProfile` table
@@ -531,6 +506,30 @@ if (reqData["lead_id"]<= 0) {
 }
 
 
+// Login Function 
+export async function loginOut (req,userInfo){
+  try {
+
+    const { data, error } = await _supabase
+    .from('logged_in_devices')
+    .update({'is_deleted':true})
+    .eq('user_id', userInfo['id'])
+    .select('user_id').maybeSingle();
+
+    if (error) {
+      customLog('Error checking phone number:', error);
+      return returnResponse(500,`Device not found: ${error.message}`,null);
+    }
+
+    return returnResponse(200,`Success`,userData);
+    
+  } 
+  catch (err) {
+    customLog('Failed to login ', err);
+    return returnResponse(500,`Server error: ${err.message}`,null);
+  }
+}
+
 /// Add User busines card
 export async function manageUserBusinessCard(req,userInfo,action){
   try {
@@ -560,12 +559,8 @@ else if(action.toLowerCase()==="deletecard"){
 
 const userData = {};
 if(action.toLowerCase()==="add" || action.toLowerCase()==="update"){
-  console.log("method >>>> 0 :", method);
   const reqData = await getApiRequest(req,method);
-  console.log("userData >>>> 0 :", reqData);
-  // if('business_card_details' in reqData){
-  //   userData["business_card_details"] = JSON.stringify(reqData["business_card_details"]);
-  // }
+
   if(reqData.length<=0){
     return returnResponse(500, `Data requred`, null);
   }
@@ -603,3 +598,6 @@ console.error('Server error:', err);
 return returnResponse(500,`Server error`,err);
 }
 }
+
+
+

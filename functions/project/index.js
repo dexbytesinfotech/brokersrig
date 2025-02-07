@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
 import { returnResponse } from "../response_formatter_js/index.js";// Assuming this module exports `returnResponse`
-import { validateHeaders, getApiRequest,getMinMaxPriceFromBudgetCode,getPriceFromString,generateUniqueIntId,validateRequredReqFields,getFilteredReqData} from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
+import { validateHeaders, getApiRequest,getMinMaxPriceFromBudgetCode,getPriceFromString,generateUniqueIntId,validateRequredReqFields,getFilteredReqData,customLog} from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
 import {verifyJWT } from "../jwt_auth/index.js";
 import {addMediaFileInfo,deleteMediaFileInfo } from "../mobile_app_config/index.js";
 
@@ -853,6 +853,126 @@ catch (err)
             return returnResponse(500,`Not found`,null);
  }
 }
+
+
+
+export async function searchProject(req,userInfo) {
+  try {
+     /// Get data from API
+  const reqData = await getApiRequest(req,"GET");
+  const missingKeys = validateRequredReqFields(reqData,['search_value']);
+    if (missingKeys['missingKeys'].length > 0) {
+      console.error('Please enter mandatory fields data', "error");
+      return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+    } 
+  
+  const localReqData = getFilteredReqData(reqData,['search_value']);
+    
+   const serchFor = `SELECT
+   rul.*,
+   p.project_id,
+   p.title,
+   p.developer_id,
+   p.is_deleted AS project_is_deleted,
+   p.is_published,
+   STRING_AGG(DISTINCT p_address.project_full_address, ', ') AS project_addresses,
+   STRING_AGG(DISTINCT p_address.city, ', ') AS project_cities,
+   STRING_AGG(DISTINCT developer.developer_name, ', ') AS developer_names
+ FROM "rUserProjects" rul
+ LEFT JOIN "projects" p ON rul.project_id = p.project_id
+ LEFT JOIN "project_address" p_address ON p.project_id = p_address.project_id
+ LEFT JOIN "developer" developer ON p.developer_id = developer.developer_id
+ WHERE rul.is_deleted = FALSE
+   AND p.is_deleted = FALSE
+   AND p.is_published = TRUE
+   AND (
+     p_address.project_full_address ILIKE '%${localReqData['search_value']}%'
+     OR p_address.city ILIKE '%${localReqData['search_value']}%'
+     OR p.title ILIKE '%${localReqData['search_value']}%'
+     OR developer.developer_name ILIKE '%${localReqData['search_value']}%'
+   )
+ GROUP BY rul.id, p.project_id, p.title, p.developer_id, p.is_deleted, p.is_published
+ ORDER BY rul.id DESC`;
+
+    // Calling the custom RPC function to get coordinates
+    const { data: result, error: coordinatesError } = await _supabase
+      .rpc('raw_query', {
+        p_query: serchFor
+      });
+  
+    if (coordinatesError) {
+      customLog(' coordinates error ####', coordinatesError);
+      return returnResponse(500,`Data not found`,coordinatesError);
+    }
+    return returnResponse(200, 'Success', result);
+
+  let query = _supabase
+.from('rUserProjects')
+  .select(`projects(${projectReturnColumn},inventories(${invertoryOfProjectReturnColumn}),
+    project_additional_details(${returnadditionalDetailColumn}),
+    project_address!left(${returnaAddressColumn}),
+    developer!left(developer_name),
+    media_files!left(
+      file_url, media_type, category, sub_category, file_id, media_for
+    ))`)
+  .eq('is_deleted', false)
+  // .eq('user_id', userInfo.id)
+  .eq('projects.is_deleted', false) 
+  .eq('projects.is_published', true) 
+  .eq('projects.media_files.is_deleted', false)
+  .ilike('projects.project_address.project_full_address', `%${localReqData['search_value']}%`) // Filter inside the relation
+  .ilike('projects.project_address.city', `%${localReqData['search_value']}%`)
+  .ilike('projects.title', `%${localReqData['search_value']}%`)
+  .ilike('projects.developer.developer_name', `%${localReqData['search_value']}%`)
+  .order('id', { ascending: false });
+  const { data: data1, error: error1 } = await query;
+  
+  if (error1) {
+    console.error('Error fetching joined data:', error1);
+  } 
+  
+  if(data1!=null && data1.length>0){
+    // const projectsList = data1.map((item) => item.projects).filter((project) => project != null);
+    const projectsList = data1.map((item) => item.projects).filter((project) => project != null).map((project) => {
+      let media_files = {};
+      if(!(project['media_files']===null) && project['media_files'].length>0){
+       let category = 'map';
+       let mapFilesList = project['media_files'].filter(file => file['category'].toLowerCase() === category.toLowerCase());
+       media_files['map'] = mapFilesList;
+       category = 'photo';
+       let photoFilesList = project['media_files'].filter(file => file['category'].toLowerCase() === category.toLowerCase());
+       media_files['photo'] = photoFilesList;
+       category = 'brochure';
+       let brochureFilesList = project['media_files'].filter(file => file['category'].toLowerCase() === category.toLowerCase());
+       media_files['brochure'] = brochureFilesList;
+       console.log(`Media file ${media_files}`);
+      }
+      return {
+          ...project, // Spread the existing project properties
+          media_files
+      };
+  });
+    if(projectsList!=null && projectsList.length>0){
+    return returnResponse(200, 'Success', projectsList);
+    }
+    return returnResponse(400, 'No data found', []);
+  }
+  else
+  {
+    return returnResponse(400, 'No data found >', []);
+  }
+  
+  }
+  catch (err) 
+  {
+              console.error('Server error: new', err);
+              return returnResponse(500,`Data not found`,err);
+   }
+  }
+
+
+
+
 //
 async function asyncgetProjectDetails(projectId) {
   const { data: leadDetail, error: error1 } = await _supabase

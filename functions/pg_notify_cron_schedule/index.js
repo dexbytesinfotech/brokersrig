@@ -1,6 +1,8 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
 import { returnResponse } from "../response_formatter_js/index.js";// Assuming this module exports `returnResponse`
+import {customLog} from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
+
 
 // Environment variables
 const _supabaseUrl = Deno.env.get('BASE_SUPABASE_URL');
@@ -16,7 +18,7 @@ const _OnesignalRestApiKey_ = Deno.env.get('ONESIGNAL_REST_API_KEY');
 // const onesignal = new OneSignal.DefaultApi(configuration);
 
 
-const returnFollowUpColumn = ['notify_status','created_at','assigned_id','follow_up_id','lead_status','lead_status_option','follow_up_remark','follow_up_date_time','follow_up_category'].join(', ');
+const returnFollowUpColumn = ['notify_status','lead_id','created_at','assigned_id','follow_up_id','lead_status','lead_status_option','follow_up_remark','follow_up_date_time','follow_up_category'].join(', ');
 
 serve(async (req) => {
   try {
@@ -51,7 +53,7 @@ serve(async (req) => {
  // Fetch data from the 'follow_up' table
 const { data, error } = await _supabase
 .from('follow_up')
-.select(`${returnFollowUpColumn},usersProfile(${['user_id', 'first_name'].join(', ')})`)
+.select(`${returnFollowUpColumn},usersProfile(${['user_id', 'first_name'].join(', ')}),contacts(${['first_name','last_name','phone'].join(', ')})`)
 .eq('is_deleted', false)
 .eq('notify_status', false)
 .gte('follow_up_date_time', lowerBoundDate)  // follow_up_date_time >= lowerBound
@@ -103,8 +105,9 @@ if(error===null && !(data===null)){
   let subscriptionIdsArray = data
 .filter(item => item.device_fcm_token !== null) // Remove null values
 .map(item => item.device_fcm_token); 
-
+ customLog(`NotificationMsg record ####`, record);
   let notificationMsg = getNotificationMsg(1,record);
+  customLog(`NotificationMsg #### ${record}`, notificationMsg);
   // Remove duplicates if necessary
    subscriptionIdsArray = [...new Set(subscriptionIdsArray)];
   // Send notification for each record
@@ -169,6 +172,9 @@ const sendNotification = async (subscriptionIdsArray, notificationMsg) => {
 function getNotificationMsg(notificationType, record) {
   let usersProfile = record['usersProfile'];
   let timeStr = record['follow_up_date_time'];
+  let contacts = record['contacts'];
+  let leadStatusOption = record['lead_status_option'] ?? "";
+  let id = record['lead_id'] ?? "";
   const date = new Date(timeStr);
   timeStr = date.toLocaleTimeString("en-GB", {
   hour: "2-digit",
@@ -178,8 +184,12 @@ function getNotificationMsg(notificationType, record) {
 });
   return {
     name: "",
-    contents: `Your Follow up call/meeting with ${usersProfile['first_name']} is coming up at ${timeStr}.`,
-    headings: "Client Meeting",
-    data: {"other_info":`Intraday call for `},
+    contents: `Your Follow up call/meeting with ${contacts['first_name']} is coming up at ${timeStr}.`,
+    headings: `${leadStatusOption}`,
+    data: {  "type": "announcement","id":`${id}`},
+    buttons: [
+      { "id": "like-button", "text": "Like", "icon": "http://i.imgur.com/N8SN8ZS.png" },
+      { "id": "read-more-button", "text": "Read More", "icon": "http://i.imgur.com/MIxJp1L.png" }
+    ]
   };
 }
