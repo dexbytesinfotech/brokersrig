@@ -13,7 +13,7 @@ import {addProject,addListing,getAllProjects,getProjectListing,addPaymentTerms,s
 
 import {userLogin,loginOut,updateUserProfile,forgotPassword,getProfile,setPassword,changePassword,deleteAccount,registerUser,manageUserBusinessCard} from "../user/index.js";
 
-import {addContact,updateContact,deleteContact,getContacts,getAllContacts,getValidedContact,getAcountType} from "../contact_api/index.js";
+import {addContact,updateContact,deleteContact,getContacts,getAllContacts,getValidedContact,getAcountType,searchContact} from "../contact_api/index.js";
 
 // Environment variables
 const _supabaseUrl = Deno.env.get('BASE_SUPABASE_URL');
@@ -96,6 +96,7 @@ const apiMappings = {
   "/contact/update": { method: "POST", handler: updateContact},
   "/contact/delete": { method: "DELETE", handler: deleteContact},
   "/contact/get_contacts": { method: "GET", handler: getContacts},
+  "/contact/search_contacts": { method: "GET", handler: searchContact},
   "/contact/get_all_contacts": { method: "GET", handler: getAllContacts},
   "/contact/is_valid_contact": { method: "GET", handler: getValidedContact},
   "/account_type/get_account_type": { method: "GET", handler: getAcountType},

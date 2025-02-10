@@ -24,12 +24,12 @@ const projectReturnColumn = ["title",
 "initial_payment",
 "payments_term_remark",
 "development_permission","brokerage_note",
-"construction_permission"].join(', ');
+"construction_permission"];
 
 const invertoryReturnColumn = ["created_at","preferred_location","min_budget","purpose","additional_details","lead_type","property_size","assigne_id","max_budget",
-"city","lat","lng","full_adress","amount_symbol_id","country_code","is_deleted","is_verified","asking_price","sell_type","inventory_id","lead_id","budget_label"].join(', ');
-const returnContactColumn = ['phone','first_name','last_name','contact_id','county_code'].join(', ');
-const returnadditionalDetailColumn  = ['remark','gar_facing_charge','east_facing_change','electricity_charge'].join(', ');
+"city","lat","lng","full_adress","amount_symbol_id","country_code","is_deleted","is_verified","asking_price","sell_type","inventory_id","lead_id","budget_label"];
+const returnContactColumn = ['phone','first_name','last_name','contact_id','county_code'];
+const returnadditionalDetailColumn  = ['remark','gar_facing_charge','east_facing_change','electricity_charge'];
 const returnaAddressColumn  = [ "lat",
 "city",
 "long",
@@ -39,9 +39,9 @@ const returnaAddressColumn  = [ "lat",
 "is_active",
 "created_at",
 "is_deleted",
-"project_full_address"].join(', ');
+"project_full_address"];
 
-const invertoryOfProjectReturnColumn = ["created_at","min_budget","lead_type","property_size","asking_price","project_id","budget_label","number_of_unit","remark"].join(', ');
+const invertoryOfProjectReturnColumn = ["created_at","min_budget","lead_type","property_size","asking_price","project_id","budget_label","number_of_unit","remark"];
 
 export async function addProject(req,userInfo){
   try
@@ -137,9 +137,9 @@ export async function getAllProjects(req,userInfo) {
 // `
 const { data: data1, error: error1 } = await _supabase
 .from('rUserProjects')
-  .select(`projects(${projectReturnColumn},inventories(${invertoryOfProjectReturnColumn}),
-    project_additional_details(${returnadditionalDetailColumn}),
-    project_address(${returnaAddressColumn}),
+  .select(`projects(${projectReturnColumn.join(', ')},inventories(${invertoryOfProjectReturnColumn.join(', ')}),
+    project_additional_details(${returnadditionalDetailColumn.join(', ')}),
+    project_address(${returnaAddressColumn.join(', ')}),
     media_files!left(
       file_url, media_type, category, sub_category, file_id, media_for
     ))`)
@@ -747,7 +747,7 @@ export async function getProjectListing(req,userInfo) {
                        
 const { data: data1, error: error1 } = await _supabase
 .from('rUserInventories')
-  .select(`inventories(${invertoryOfProjectReturnColumn},
+  .select(`inventories(${invertoryOfProjectReturnColumn.join(', ')},
   propertyType(${['title','property_type'].join(', ')}), media_files!left(
     file_url, media_type, category, sub_category, file_id, media_for, is_deleted
   ))
@@ -865,33 +865,60 @@ export async function searchProject(req,userInfo) {
       console.error('Please enter mandatory fields data', "error");
       return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
     } 
-  
-  const localReqData = getFilteredReqData(reqData,['search_value']);
-    
-   const serchFor = `SELECT
-   rul.*,
-   p.project_id,
-   p.title,
-   p.developer_id,
-   p.is_deleted AS project_is_deleted,
-   p.is_published,
-   STRING_AGG(DISTINCT p_address.project_full_address, ', ') AS project_addresses,
-   STRING_AGG(DISTINCT p_address.city, ', ') AS project_cities,
-   STRING_AGG(DISTINCT developer.developer_name, ', ') AS developer_names
+  const localReqData = getFilteredReqData(reqData,['search_value']);  
+  // Convert the array to a string of key-value pairs
+const addressReturnJson = returnaAddressColumn
+.map((col) => `'${col}', project_address.${col}`)
+.join(', ');
+
+const projectReturnJson = projectReturnColumn
+.map((col) => `p.${col}`)
+.join(', ');
+
+const serchFor = `SELECT
+  ${projectReturnJson},
+     (
+     SELECT jsonb_build_object(
+      ${addressReturnJson}
+     )
+     FROM "project_address"
+     WHERE project_address.project_id = p.project_id
+     LIMIT 1
+   ) AS project_addresses,
+   (
+     SELECT jsonb_build_object(
+       'developer_id', developer.developer_id,
+       'developer_name', developer.developer_name
+     )
+     FROM "developer"
+     WHERE developer.developer_id = p.developer_id
+     LIMIT 1
+   ) AS developer
+   ,
+   jsonb_agg(DISTINCT jsonb_build_object(
+           'file_url', media_files.file_url,
+           'media_type', media_files.media_type,
+           'category', media_files.category,
+           'media_for', media_files.media_for,
+           'sub_category', media_files.sub_category,
+           'file_id', media_files.file_id
+   )) AS media_files
  FROM "rUserProjects" rul
  LEFT JOIN "projects" p ON rul.project_id = p.project_id
  LEFT JOIN "project_address" p_address ON p.project_id = p_address.project_id
  LEFT JOIN "developer" developer ON p.developer_id = developer.developer_id
+ LEFT JOIN "media_files" media_files ON p.project_id = media_files.project_id
  WHERE rul.is_deleted = FALSE
    AND p.is_deleted = FALSE
    AND p.is_published = TRUE
+   AND ${userInfo.id} = rul.user_id
    AND (
      p_address.project_full_address ILIKE '%${localReqData['search_value']}%'
      OR p_address.city ILIKE '%${localReqData['search_value']}%'
      OR p.title ILIKE '%${localReqData['search_value']}%'
      OR developer.developer_name ILIKE '%${localReqData['search_value']}%'
    )
- GROUP BY rul.id, p.project_id, p.title, p.developer_id, p.is_deleted, p.is_published
+ GROUP BY rul.id, p.id, p.project_id, p.title, p.developer_id
  ORDER BY rul.id DESC`;
 
     // Calling the custom RPC function to get coordinates
@@ -904,64 +931,42 @@ export async function searchProject(req,userInfo) {
       customLog(' coordinates error ####', coordinatesError);
       return returnResponse(500,`Data not found`,coordinatesError);
     }
-    return returnResponse(200, 'Success', result);
+    customLog('Search project result ####', result);
+    if(result!=null && result.length>0){
+      // const projectsList = result.map((item) => item.projects).filter((project) => project != null);
+      const projectsList = await result.filter((project) => project != null).map((project) => {
+        let media_files = {};
+        try{if(!(project['media_files']===null) && project['media_files'].length>0){
+          let category = 'map';
+          let mapFilesList = project['media_files'].filter(file => file['category'].toLowerCase() === category.toLowerCase());
+          media_files['map'] = mapFilesList;
+          category = 'photo';
+          let photoFilesList = project['media_files'].filter(file => file['category'].toLowerCase() === category.toLowerCase());
+          media_files['photo'] = photoFilesList;
+          category = 'brochure';
+          let brochureFilesList = project['media_files'].filter(file => file['category'].toLowerCase() === category.toLowerCase());
+          media_files['brochure'] = brochureFilesList;
+          console.log(`Media file ${media_files}`);
+         }}
+        catch(error){
 
-  let query = _supabase
-.from('rUserProjects')
-  .select(`projects(${projectReturnColumn},inventories(${invertoryOfProjectReturnColumn}),
-    project_additional_details(${returnadditionalDetailColumn}),
-    project_address!left(${returnaAddressColumn}),
-    developer!left(developer_name),
-    media_files!left(
-      file_url, media_type, category, sub_category, file_id, media_for
-    ))`)
-  .eq('is_deleted', false)
-  // .eq('user_id', userInfo.id)
-  .eq('projects.is_deleted', false) 
-  .eq('projects.is_published', true) 
-  .eq('projects.media_files.is_deleted', false)
-  .ilike('projects.project_address.project_full_address', `%${localReqData['search_value']}%`) // Filter inside the relation
-  .ilike('projects.project_address.city', `%${localReqData['search_value']}%`)
-  .ilike('projects.title', `%${localReqData['search_value']}%`)
-  .ilike('projects.developer.developer_name', `%${localReqData['search_value']}%`)
-  .order('id', { ascending: false });
-  const { data: data1, error: error1 } = await query;
-  
-  if (error1) {
-    console.error('Error fetching joined data:', error1);
-  } 
-  
-  if(data1!=null && data1.length>0){
-    // const projectsList = data1.map((item) => item.projects).filter((project) => project != null);
-    const projectsList = data1.map((item) => item.projects).filter((project) => project != null).map((project) => {
-      let media_files = {};
-      if(!(project['media_files']===null) && project['media_files'].length>0){
-       let category = 'map';
-       let mapFilesList = project['media_files'].filter(file => file['category'].toLowerCase() === category.toLowerCase());
-       media_files['map'] = mapFilesList;
-       category = 'photo';
-       let photoFilesList = project['media_files'].filter(file => file['category'].toLowerCase() === category.toLowerCase());
-       media_files['photo'] = photoFilesList;
-       category = 'brochure';
-       let brochureFilesList = project['media_files'].filter(file => file['category'].toLowerCase() === category.toLowerCase());
-       media_files['brochure'] = brochureFilesList;
-       console.log(`Media file ${media_files}`);
+        }
+        return {
+            ...project, // Spread the existing project properties
+            media_files
+        };
+    });
+
+    customLog('Search project result projectsList ####', projectsList);
+      if(projectsList!=null && projectsList.length>0){
+      return returnResponse(200, 'Success', projectsList);
       }
-      return {
-          ...project, // Spread the existing project properties
-          media_files
-      };
-  });
-    if(projectsList!=null && projectsList.length>0){
-    return returnResponse(200, 'Success', projectsList);
+      return returnResponse(400, 'No data found', result);
     }
-    return returnResponse(400, 'No data found', []);
-  }
-  else
-  {
-    return returnResponse(400, 'No data found >', []);
-  }
-  
+    else
+    {
+      return returnResponse(400, 'No data found >', []);
+    }  
   }
   catch (err) 
   {
@@ -978,9 +983,9 @@ async function asyncgetProjectDetails(projectId) {
   const { data: leadDetail, error: error1 } = await _supabase
   .from('projects')
   .select(`
-  ${projectReturnColumn},inventories(${invertoryOfProjectReturnColumn},propertyType(${['title','property_type'].join(', ')})),
-  project_additional_details(${returnadditionalDetailColumn}),
-  project_address(${returnaAddressColumn}),
+  ${projectReturnColumn},inventories(${invertoryOfProjectReturnColumn.join(', ')},propertyType(${['title','property_type'].join(', ')})),
+  project_additional_details(${returnadditionalDetailColumn.join(', ')}),
+  project_address(${returnaAddressColumn.join(', ')}),
   developer(${['developer_name','developer_id'].join(', ')}),
   media_files(file_url,media_type,category,sub_category,file_id,media_for)
 `).eq('is_deleted', false)
@@ -1026,8 +1031,8 @@ async function asyncgetInventoryDetails(inventoryId) {
   return await _supabase
   .from('inventories')
   .select(`
-  ${invertoryReturnColumn},
-  contacts(${returnContactColumn}),
+  ${invertoryReturnColumn.join(', ')},
+  contacts(${returnContactColumn.join(', ')}),
   propertyType(${['title','property_type'].join(', ')}),
   media_files(file_url, media_type, category, sub_category, file_id, media_for)
 `).eq('is_deleted', false)

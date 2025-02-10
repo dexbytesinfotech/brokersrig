@@ -510,7 +510,7 @@ if (reqData["lead_id"]<= 0) {
 export async function loginOut (req,userInfo){
   try {
 
-    const { data, error } = await _supabase
+    const { data:userData, error } = await _supabase
     .from('logged_in_devices')
     .update({'is_deleted':true})
     .eq('user_id', userInfo['id'])
@@ -518,10 +518,11 @@ export async function loginOut (req,userInfo){
 
     if (error) {
       customLog('Error checking phone number:', error);
-      return returnResponse(500,`Device not found: ${error.message}`,null);
+      return returnResponse(200,`Logout Success`,userData);
+      // return returnResponse(500,`Device not found: ${error.message}`,null);
     }
 
-    return returnResponse(200,`Success`,userData);
+    return returnResponse(200,`Logout Success`,userData);
     
   } 
   catch (err) {

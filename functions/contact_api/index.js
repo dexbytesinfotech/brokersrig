@@ -1,7 +1,7 @@
 
 import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
 import { returnResponse } from "../response_formatter_js/index.js";// Assuming this module exports `returnResponse`
-import { validateHeaders, getHeaderAuthorization, getApiRequest,validateEndPoint,generateUniqueIntId } from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
+import { validateHeaders, getHeaderAuthorization, getApiRequest,validateEndPoint,generateUniqueIntId,validateRequredReqFields,getFilteredReqData } from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
 
 
 // Environment variables
@@ -447,4 +447,71 @@ catch (err)
             console.error('Server error: new', err);
             return returnResponse(500,`User not exist`,null);
  }
+}
+
+
+export async function searchContact(req,userInfo) {
+  try {
+     /// Get data from API
+     const reqData = await getApiRequest(req,"GET");
+     const missingKeys = validateRequredReqFields(reqData,['search_value']);
+       if (missingKeys['missingKeys'].length > 0) {
+         console.error('Please enter mandatory fields data', "error");
+         return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+       } 
+     const localReqData = getFilteredReqData(reqData,['search_value']); 
+
+     const serchFor = `SELECT DISTINCT ON (contact.user_id) 
+     contact.user_id, 
+     contact.first_name, 
+     contact.last_name, 
+     contact.nick_name, 
+     contact.phone,
+     (
+       SELECT jsonb_build_object(
+         'email', u.email,
+         'last_name', u.last_name,
+         'first_name', u.first_name
+       )
+       FROM "users" u
+       WHERE u.id = contact.user_id
+       LIMIT 1
+     ) AS user
+ FROM "contacts" contact
+ WHERE contact.is_deleted = FALSE
+   AND EXISTS (
+     SELECT 1 
+     FROM "users" u 
+     WHERE u.id = contact.user_id AND ${userInfo.id} = contact.user_id AND 
+      u.is_deleted = FALSE
+   )
+   AND (
+     contact.first_name ILIKE '%${localReqData['search_value']}%'
+     OR contact.last_name ILIKE '%${localReqData['search_value']}%'
+     OR contact.nick_name ILIKE '%${localReqData['search_value']}%'
+     OR contact.phone ILIKE '%${localReqData['search_value']}%'
+   )
+ ORDER BY contact.user_id, contact.id DESC`;
+   
+       // Calling the custom RPC function to get coordinates
+       const { data: result, error: coordinatesError } = await _supabase
+         .rpc('raw_query', {
+           p_query: serchFor
+         });
+     
+       if (coordinatesError) {
+         customLog(' coordinates error ####', coordinatesError);
+         return returnResponse(500,`Data not found`,coordinatesError);
+       }
+       if(result!=null && result.length>0){
+        return returnResponse(200, 'Success', result);
+        }
+      else
+      {
+        return returnResponse(400, 'No data found', []);
+      } 
+}catch (err) {
+            console.error('Server error: new', err);
+            return returnResponse(500,`User not exist`,null);
+          }
 }
