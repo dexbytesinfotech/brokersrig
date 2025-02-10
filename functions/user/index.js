@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
 import { returnResponse } from "../response_formatter_js/index.js";// Assuming this module exports `returnResponse`
-import { validateHeaders, getApiRequest,getMinMaxPriceFromBudgetCode,getPriceFromString,generateUniqueIntId , isValidEmail,validateMethods,customLog} from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
+import { validateHeaders, getApiRequest,getMinMaxPriceFromBudgetCode,getPriceFromString,generateUniqueIntId,getFilteredReqData,validateRequredReqFields , isValidEmail,validateMethods,customLog} from "../validate_functions/index.js";// Assuming this module exports `returnResponse`
 import {createCustomJWT, verifyJWT } from "../jwt_auth/index.js";
 import { sendEmail } from "../send_email/index.js";// Assuming this module exports `returnResponse`
 
@@ -34,15 +34,16 @@ async function asyncgetUserProfile(userId) {
 // Login Function 
 export async function userLogin (req){
   try {
-   
-/// Get data from API
-const reqData = await getApiRequest(req,"POST");
-if (reqData["lead_id"]<= 0) {
-  return returnResponse(400,"Lead id mandatory",null);
-}
-
     // Extract phone_number from payload
-    const { email,password,device_fcm_token} = reqData; // Ensure the payload has a property named phone_number
+    // const { email,password,device_fcm_token} = reqData; // Ensure the payload has a property named phone_number
+     /// Get data from API
+     const reqData = await getApiRequest(req,"POST");
+     const missingKeys = validateRequredReqFields(reqData,['email','password','device_fcm_token']);
+       if (missingKeys['missingKeys'].length > 0) {
+         console.error('Please enter mandatory fields data', "error");
+         return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+       } 
+     const localReqData = getFilteredReqData(reqData,['email','password','device_fcm_token','deviceId']);
 
     // Add key that not needed in response
     const useBasicInfo = ['id','created_at','email','account_type','account_status','account_status_updated_by','first_name','last_name'].join(', ');
@@ -50,8 +51,8 @@ if (reqData["lead_id"]<= 0) {
     const { data, error } = await _supabase
       .from('users')
       .select(useBasicInfo)
-      .eq('email', email)
-      .eq('password', password)
+      .eq('email', localReqData['email'])
+      .eq('password', localReqData['password'])
       .eq('is_deleted', false)
       .maybeSingle();
 
@@ -86,22 +87,35 @@ if (reqData["lead_id"]<= 0) {
       userData['auth_token'] = authTotken;
 
 try{
-  /// Store device token
+  const { data:resultData, errorresultError } = await _supabase
+  .from('logged_in_devices')
+  .select('user_id')
+  .eq('user_id', userData.id)
+  .eq("device_id",localReqData['deviceId']).single();
+
+  /// Update Data
+  if(!(errorresultError===null) && !(resultData===null)){
+    const { data, error } = await _supabase
+    .from('logged_in_devices')
+    .update({  "device_fcm_token":localReqData['device_fcm_token'],'is_deleted':false})
+    .eq('user_id', userData['id'])
+    .eq("device_id",localReqData['deviceId'])
+    .select('user_id').maybeSingle();
+  }
+  else {
   const { data, error } = await _supabase
   .from('logged_in_devices')
   .insert({
-    "device_fcm_token":device_fcm_token,"user_id":userData.id
-  })
-  .single();
-  if(error){
-    console.error('Failed to login ', error);
+    "device_fcm_token":localReqData['device_fcm_token'],"user_id":userData.id,'device_id':localReqData['deviceId']
+  }).maybeSingle();
   }
+
 }
 catch(error){
-  console.error('Failed to login ', err);
+  console.error('Failed to login ', error);
 }
 
-      delete userData.id;
+delete userData.id;
       return returnResponse(200,`Success`,userData);
     } 
     else {
@@ -509,11 +523,19 @@ if (reqData["lead_id"]<= 0) {
 // Login Function 
 export async function loginOut (req,userInfo){
   try {
+    const reqData = await getApiRequest(req,"POST");
+    const missingKeys = validateRequredReqFields(reqData,['deviceId']);
+      if (missingKeys['missingKeys'].length > 0) {
+        console.error('Please enter mandatory fields data', "error");
+        return returnResponse(500, `Please enter mandatory fields data`, missingKeys['missingKeys']);
+      } 
+    const localReqData = getFilteredReqData(reqData,['deviceId']);
 
     const { data:userData, error } = await _supabase
     .from('logged_in_devices')
-    .update({'is_deleted':true})
+    .update({"device_fcm_token":'','is_deleted':true})
     .eq('user_id', userInfo['id'])
+    .eq("device_id",localReqData['deviceId'])
     .select('user_id').maybeSingle();
 
     if (error) {
@@ -521,7 +543,6 @@ export async function loginOut (req,userInfo){
       return returnResponse(200,`Logout Success`,userData);
       // return returnResponse(500,`Device not found: ${error.message}`,null);
     }
-
     return returnResponse(200,`Logout Success`,userData);
     
   } 
